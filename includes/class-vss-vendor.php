@@ -1520,7 +1520,7 @@ class VSS_Vendor {
                            <td>
                                <?php echo esc_html( $item->get_name() ); ?>
                                <?php if ( $item->get_variation_id() ) : ?>
-                                   <br><small><?php echo esc_html( wc_get_formatted_variation( $item->get_variation_attributes() ) ); ?></small>
+                                <br><small><?php echo wc_get_formatted_variation( $item, true ); ?></small>
                                <?php endif; ?>
                            </td>
                            <td><?php echo $product ? esc_html( $product->get_sku() ) : '—'; ?></td>
@@ -2398,17 +2398,31 @@ class VSS_Vendor {
     *
     * @param WP_Query $query
     */
-   public static function filter_orders_for_vendor_in_admin( $query ) {
-       if ( ! is_admin() || ! self::is_current_user_vendor() || ! $query->is_main_query() ) {
-           return;
-       }
+   // Find this function around line 1807
+public static function filter_orders_for_vendor_in_admin( $query ) {
+    if ( ! is_admin() || ! self::is_current_user_vendor() || ! $query->is_main_query() ) {
+        return;
+    }
 
-       global $pagenow;
-       if ( $pagenow === 'edit.php' && isset( $query->query_vars['post_type'] ) && $query->query_vars['post_type'] === 'shop_order' ) {
-           $query->set( 'meta_key', '_vss_vendor_user_id' );
-           $query->set( 'meta_value', get_current_user_id() );
-       }
-   }
+    global $pagenow;
+    if ( $pagenow === 'edit.php' && isset( $query->query_vars['post_type'] ) && $query->query_vars['post_type'] === 'shop_order' ) {
+        // This is the original, problematic code
+        // $query->set( 'meta_key', '_vss_vendor_user_id' );
+        // $query->set( 'meta_value', get_current_user_id() );
+
+        // REPLACE with this more robust code:
+        $meta_query = $query->get( 'meta_query' );
+        if ( ! is_array( $meta_query ) ) {
+            $meta_query = [];
+        }
+        $meta_query[] = [
+            'key' => '_vss_vendor_user_id',
+            'value' => get_current_user_id(),
+            'compare' => '=',
+        ];
+        $query->set( 'meta_query', $meta_query );
+    }
+}
 
    /**
     * Restrict admin menu for vendors
