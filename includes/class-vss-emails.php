@@ -1,46 +1,158 @@
 <?php
 /**
- * Enhanced VSS Emails Class
+ * VSS Emails Class
  *
- * Improved email notifications with better approval buttons and design
+ * Handles all email notifications for the Vendor Order Manager plugin
+ *
+ * @package VendorOrderManager
+ * @since 7.0.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class VSS_Emails_Enhanced {
+class VSS_Emails {
 
     /**
-     * Initialize email hooks.
+     * Email templates cache
+     *
+     * @var array
+     */
+    private static $templates_cache = [];
+
+    /**
+     * Initialize email hooks
      */
     public static function init() {
-        add_action('vss_order_assigned_to_vendor', [self::class, 'send_new_assignment_email'], 10, 2);
-        add_action('woocommerce_order_status_changed', [self::class, 'send_status_change_emails'], 10, 4);
+        // Order assignment emails
+        add_action( 'vss_order_assigned_to_vendor', [ self::class, 'send_new_assignment_email' ], 10, 2 );
         
-        // Add custom email styles
-        add_action('woocommerce_email_header', [self::class, 'add_custom_email_styles'], 10, 2);
+        // Status change emails
+        add_action( 'woocommerce_order_status_changed', [ self::class, 'send_status_change_emails' ], 10, 4 );
+        
+        // Production confirmation emails
+        add_action( 'vss_production_confirmed', [ self::class, 'send_production_confirmation_emails' ], 10, 2 );
+        
+        // Approval emails
+        add_action( 'vss_approval_requested', [ self::class, 'send_approval_request_email' ], 10, 3 );
+        add_action( 'vss_approval_response', [ self::class, 'send_approval_response_emails' ], 10, 3 );
+        
+        // Reminder emails
+        add_action( 'vss_send_vendor_reminder', [ self::class, 'send_vendor_reminder_email' ], 10, 2 );
+        
+        // Custom email styles
+        add_action( 'woocommerce_email_header', [ self::class, 'add_custom_email_styles' ], 10, 2 );
+        
+        // Email settings
+        add_filter( 'woocommerce_email_settings', [ self::class, 'add_email_settings' ] );
+        
+        // Email templates
+        add_filter( 'woocommerce_locate_template', [ self::class, 'locate_email_template' ], 10, 3 );
+        
+        // Test email
+        add_action( 'wp_ajax_vss_send_test_email', [ self::class, 'ajax_send_test_email' ] );
     }
 
     /**
-     * Add custom CSS styles to WooCommerce emails
+     * Send email using WooCommerce mailer
+     *
+     * @param string|array $to
+     * @param string $subject
+     * @param string $message
+     * @param array $headers
+     * @param array $attachments
+     * @return bool
      */
-    public static function add_custom_email_styles($email_heading, $email) {
+    private static function send_email( $to, $subject, $message, $headers = [], $attachments = [] ) {
+        // Get mailer instance
+        $mailer = WC()->mailer();
+
+        // Set default headers
+        $default_headers = [
+            'Content-Type: text/html; charset=UTF-8',
+        ];
+
+        // From header
+        $from_name = get_option( 'vss_email_from_name', get_bloginfo( 'name' ) );
+        $from_email = get_option( 'vss_email_from_address', get_option( 'admin_email' ) );
+        $default_headers[] = sprintf( 'From: %s <%s>', $from_name, $from_email );
+
+        // Reply-to header if specified
+        if ( isset( $headers['reply_to'] ) ) {
+            $default_headers[] = sprintf( 'Reply-To: %s', $headers['reply_to'] );
+            unset( $headers['reply_to'] );
+        }
+
+        // Merge headers
+        $headers = array_merge( $default_headers, $headers );
+
+        // Wrap message in WooCommerce email template
+        $wrapped_message = $mailer->wrap_message( $subject, $message );
+
+        // Apply inline styles
+        $email_instance = new WC_Email();
+        $styled_message = $email_instance->style_inline( $wrapped_message );
+
+        // Send email
+        $sent = $mailer->send( $to, $subject, $styled_message, $headers, $attachments );
+
+        // Log email
+        if ( get_option( 'vss_enable_email_log', 'no' ) === 'yes' ) {
+            self::log_email( $to, $subject, $sent );
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Add custom email styles
+     *
+     * @param string $email_heading
+     * @param WC_Email $email
+     */
+    public static function add_custom_email_styles( $email_heading, $email ) {
         ?>
         <style type="text/css">
-            /* Custom button styles for VSS emails */
+            /* VSS Custom Email Styles */
+            .vss-email-section {
+                margin: 30px 0;
+                padding: 20px;
+                background-color: #f9f9f9;
+                border-radius: 8px;
+                border: 1px solid #e5e5e5;
+            }
+            
             .vss-email-button {
                 display: inline-block !important;
-                padding: 15px 30px !important;
+                padding: 14px 28px !important;
                 margin: 10px 5px !important;
                 text-decoration: none !important;
                 border-radius: 5px !important;
                 font-size: 16px !important;
-                font-weight: bold !important;
+                font-weight: 600 !important;
                 text-align: center !important;
                 transition: all 0.3s ease !important;
-                font-family: Arial, sans-serif !important;
-                min-width: 150px !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                min-width: 140px !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            }
+            
+            .vss-email-button:hover {
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+            }
+            
+            .vss-email-button-primary {
+                background-color: #2271b1 !important;
+                color: #ffffff !important;
+                border: 2px solid #2271b1 !important;
+            }
+            
+            .vss-email-button-primary:hover {
+                background-color: #1e5e96 !important;
+                border-color: #1e5e96 !important;
+                color: #ffffff !important;
             }
             
             .vss-email-button-approve {
@@ -51,6 +163,7 @@ class VSS_Emails_Enhanced {
             
             .vss-email-button-approve:hover {
                 background-color: #45a049 !important;
+                border-color: #45a049 !important;
                 color: #ffffff !important;
             }
             
@@ -62,23 +175,84 @@ class VSS_Emails_Enhanced {
             
             .vss-email-button-disapprove:hover {
                 background-color: #da190b !important;
+                border-color: #da190b !important;
                 color: #ffffff !important;
             }
             
             .vss-button-container {
                 text-align: center !important;
-                margin: 30px 0 !important;
-                padding: 20px !important;
-                background-color: #f9f9f9 !important;
+                margin: 35px 0 !important;
+                padding: 25px !important;
+                background-color: #f5f5f5 !important;
                 border-radius: 10px !important;
+                border: 1px solid #e0e0e0 !important;
             }
             
-            .vss-file-preview-container {
+            .vss-highlight-box {
+                background-color: #e3f2fd !important;
+                border-left: 4px solid #2196F3 !important;
+                padding: 15px 20px !important;
                 margin: 20px 0 !important;
-                padding: 15px !important;
-                border: 1px solid #e0e0e0 !important;
-                border-radius: 8px !important;
-                background-color: #ffffff !important;
+                border-radius: 0 5px 5px 0 !important;
+            }
+            
+            .vss-success-box {
+                background-color: #e8f5e9 !important;
+                border-left: 4px solid #4CAF50 !important;
+                padding: 15px 20px !important;
+                margin: 20px 0 !important;
+                border-radius: 0 5px 5px 0 !important;
+            }
+            
+            .vss-warning-box {
+                background-color: #fff3cd !important;
+                border-left: 4px solid #ffc107 !important;
+                padding: 15px 20px !important;
+                margin: 20px 0 !important;
+                border-radius: 0 5px 5px 0 !important;
+            }
+            
+            .vss-error-box {
+                background-color: #ffebee !important;
+                border-left: 4px solid #f44336 !important;
+                padding: 15px 20px !important;
+                margin: 20px 0 !important;
+                border-radius: 0 5px 5px 0 !important;
+            }
+            
+            .vss-order-details {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                margin: 20px 0 !important;
+            }
+            
+            .vss-order-details th {
+                background-color: #f5f5f5 !important;
+                padding: 12px !important;
+                text-align: left !important;
+                border-bottom: 2px solid #ddd !important;
+                font-weight: 600 !important;
+            }
+            
+            .vss-order-details td {
+                padding: 12px !important;
+                border-bottom: 1px solid #eee !important;
+            }
+            
+            .vss-file-preview {
+                display: inline-block !important;
+                margin: 10px !important;
+                padding: 10px !important;
+                border: 1px solid #ddd !important;
+                border-radius: 5px !important;
+                text-align: center !important;
+                background-color: #fff !important;
+            }
+            
+            .vss-file-preview img {
+                max-width: 200px !important;
+                max-height: 200px !important;
+                border-radius: 3px !important;
             }
             
             .vss-vendor-notes {
@@ -87,6 +261,34 @@ class VSS_Emails_Enhanced {
                 border-left: 4px solid #2271b1 !important;
                 margin: 20px 0 !important;
                 font-style: italic !important;
+                border-radius: 0 5px 5px 0 !important;
+            }
+            
+            .vss-countdown {
+                display: inline-block !important;
+                padding: 8px 16px !important;
+                border-radius: 25px !important;
+                font-weight: bold !important;
+                font-size: 14px !important;
+                margin: 10px 0 !important;
+            }
+            
+            .vss-countdown-late {
+                background-color: #ffebee !important;
+                color: #c62828 !important;
+                border: 1px solid #ef5350 !important;
+            }
+            
+            .vss-countdown-today {
+                background-color: #e8f5e9 !important;
+                color: #2e7d32 !important;
+                border: 1px solid #66bb6a !important;
+            }
+            
+            .vss-countdown-upcoming {
+                background-color: #e3f2fd !important;
+                color: #1565c0 !important;
+                border: 1px solid #42a5f5 !important;
             }
             
             @media only screen and (max-width: 600px) {
@@ -94,6 +296,15 @@ class VSS_Emails_Enhanced {
                     display: block !important;
                     width: 100% !important;
                     margin: 10px 0 !important;
+                    box-sizing: border-box !important;
+                }
+                
+                .vss-button-container {
+                    padding: 15px !important;
+                }
+                
+                .vss-order-details {
+                    font-size: 14px !important;
                 }
             }
         </style>
@@ -101,666 +312,844 @@ class VSS_Emails_Enhanced {
     }
 
     /**
-     * Send enhanced email with better formatting
+     * Send new assignment email to vendor
+     *
+     * @param int $order_id
+     * @param int $vendor_id
      */
-    private static function send_email($to, $subject, $message, $reply_to_email = null, $reply_to_name = null, $attachments = []) {
-        $headers = ['Content-Type: text/html; charset=UTF-8'];
-        $site_title = get_bloginfo('name');
-        $admin_email_address = get_option('admin_email');
-        $from_email = apply_filters('vss_email_from_address', $admin_email_address);
-        $from_name = apply_filters('vss_email_from_name', $site_title);
+    public static function send_new_assignment_email( $order_id, $vendor_id ) {
+        $order = wc_get_order( $order_id );
+        $vendor = get_userdata( $vendor_id );
 
-        $headers[] = "From: {$from_name} <{$from_email}>";
-        if ($reply_to_email) {
-            $reply_to_header = "Reply-To: ";
-            if ($reply_to_name) { 
-                $reply_to_header .= "{$reply_to_name} <{$reply_to_email}>"; 
-            } else { 
-                $reply_to_header .= $reply_to_email; 
-            }
-            $headers[] = $reply_to_header;
-        }
-
-        $mailer = WC()->mailer();
-        $wrapped_message = $mailer->wrap_message($subject, $message);
-        
-        $email_styler = new WC_Email();
-        $styled_html_message = $email_styler->style_inline($wrapped_message);
-        
-        if (is_wp_error($styled_html_message) || false === $styled_html_message) {
-            $styled_html_message = $wrapped_message;
-        }
-
-        return $mailer->send($to, $subject, $styled_html_message, $headers, $attachments);
-    }
-
-    /**
-     * Enhanced customer approval request email with better buttons
-     */
-    public static function send_customer_approval_request_email($order_id, $type = 'mockup') {
-        $order = wc_get_order($order_id);
-        if (!$order) return;
-
-        $customer_email = $order->get_billing_email();
-        if (!$customer_email) {
-            $order->add_order_note(sprintf(__('Customer %s approval request email NOT sent: No billing email found.', 'vss'), $type));
+        if ( ! $order || ! $vendor || empty( $vendor->user_email ) ) {
             return;
         }
 
-        $type_label_uc = ($type === 'mockup') ? __('Mockup', 'vss') : __('Production File', 'vss');
-        $type_label_lc = strtolower($type_label_uc);
-        $subject = sprintf(__('Action Required: Your MunchMakers Order %s - %s Approval', 'vss'), $order->get_order_number(), $type_label_uc);
-        $customer_name = $order->get_billing_first_name() ? $order->get_billing_first_name() : __('Valued Customer', 'vss');
+        $subject = sprintf( 
+            __( '🎉 New Order #%s Assigned to You - %s', 'vss' ), 
+            $order->get_order_number(), 
+            get_bloginfo( 'name' ) 
+        );
 
-        $files_ids = get_post_meta($order_id, "_vss_{$type}_files", true);
-        $files_ids = is_array($files_ids) ? $files_ids : [];
-        $vendor_notes = get_post_meta($order_id, "_vss_{$type}_vendor_notes", true);
+        $template_data = [
+            'vendor' => $vendor,
+            'order' => $order,
+            'portal_url' => home_url( '/vendor-portal/' ),
+            'order_url' => add_query_arg( [
+                'vss_action' => 'view_order',
+                'order_id' => $order_id,
+            ], home_url( '/vendor-portal/' ) ),
+            'items' => $order->get_items(),
+            'customer_name' => $order->get_formatted_billing_full_name(),
+            'shipping_address' => $order->get_formatted_shipping_address(),
+            'has_zakeke' => self::order_has_zakeke_items( $order ),
+        ];
+
+        $message = self::get_email_template( 'vendor-new-assignment', $template_data );
+
+        $sent = self::send_email( 
+            $vendor->user_email, 
+            $subject, 
+            $message,
+            [ 'reply_to' => get_option( 'admin_email' ) ]
+        );
+
+        if ( $sent ) {
+            $order->add_order_note( sprintf( 
+                __( 'New assignment email sent to vendor %s', 'vss' ), 
+                $vendor->display_name 
+            ) );
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Send status change emails
+     *
+     * @param int $order_id
+     * @param string $old_status
+     * @param string $new_status
+     * @param WC_Order $order
+     */
+    public static function send_status_change_emails( $order_id, $old_status, $new_status, $order ) {
+        if ( ! $order instanceof WC_Order ) {
+            $order = wc_get_order( $order_id );
+            if ( ! $order ) {
+                return;
+            }
+        }
+
+        $vendor_id = get_post_meta( $order_id, '_vss_vendor_user_id', true );
+        if ( ! $vendor_id ) {
+            return;
+        }
+
+        $vendor = get_userdata( $vendor_id );
+        if ( ! $vendor || empty( $vendor->user_email ) ) {
+            return;
+        }
+
+        // Determine which emails to send based on status change
+        $email_triggers = [
+            'cancelled' => [ 'condition' => $old_status !== 'cancelled', 'template' => 'vendor-order-cancelled' ],
+            'on-hold' => [ 'condition' => $old_status !== 'on-hold', 'template' => 'vendor-order-on-hold' ],
+            'shipped' => [ 'condition' => $old_status !== 'shipped', 'template' => 'vendor-order-shipped' ],
+            'completed' => [ 'condition' => $old_status !== 'completed', 'template' => 'vendor-order-completed' ],
+        ];
+
+        if ( ! isset( $email_triggers[ $new_status ] ) || ! $email_triggers[ $new_status ]['condition'] ) {
+            return;
+        }
+
+        $trigger = $email_triggers[ $new_status ];
+        $subject_key = str_replace( '-', '_', $trigger['template'] );
+        $subject = apply_filters( "vss_email_subject_{$subject_key}", self::get_default_subject( $trigger['template'], $order ), $order );
+
+        $template_data = [
+            'vendor' => $vendor,
+            'order' => $order,
+            'old_status' => $old_status,
+            'new_status' => $new_status,
+            'portal_url' => home_url( '/vendor-portal/' ),
+            'order_url' => add_query_arg( [
+                'vss_action' => 'view_order',
+                'order_id' => $order_id,
+            ], home_url( '/vendor-portal/' ) ),
+        ];
+
+        $message = self::get_email_template( $trigger['template'], $template_data );
+
+        self::send_email( $vendor->user_email, $subject, $message );
+    }
+
+    /**
+     * Send customer approval request email
+     *
+     * @param int $order_id
+     * @param string $type
+     * @return bool
+     */
+    public static function send_customer_approval_request_email( $order_id, $type = 'mockup' ) {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return false;
+        }
+
+        $customer_email = $order->get_billing_email();
+        if ( ! $customer_email ) {
+            $order->add_order_note( sprintf( 
+                __( 'Customer %s approval request email NOT sent: No billing email found.', 'vss' ), 
+                $type 
+            ) );
+            return false;
+        }
+
+        $type_label = ( $type === 'mockup' ) ? __( 'Mockup', 'vss' ) : __( 'Production File', 'vss' );
+        $subject = sprintf( 
+            __( '👀 Action Required: Review %s for Order #%s', 'vss' ), 
+            $type_label,
+            $order->get_order_number()
+        );
+
+        // Get approval data
+        $files_ids = get_post_meta( $order_id, "_vss_{$type}_files", true ) ?: [];
+        $vendor_notes = get_post_meta( $order_id, "_vss_{$type}_vendor_notes", true );
+        $vendor_id = get_post_meta( $order_id, '_vss_vendor_user_id', true );
+        $vendor = $vendor_id ? get_userdata( $vendor_id ) : null;
 
         // Generate secure approval URLs
-        $approve_nonce = wp_create_nonce("vss_approve_{$type}_{$order_id}");
-        $disapprove_nonce = wp_create_nonce("vss_disapprove_{$type}_{$order_id}");
+        $approve_nonce = wp_create_nonce( "vss_approve_{$type}_{$order_id}" );
+        $disapprove_nonce = wp_create_nonce( "vss_disapprove_{$type}_{$order_id}" );
 
-        // Create approval page URLs (alternative approach)
-        $approval_page_url = home_url('/order-approval/');
-        
-        $approve_link = add_query_arg([
+        $base_url = admin_url( 'admin-post.php' );
+        $approve_url = add_query_arg( [
             'action' => "vss_handle_{$type}_approval",
             'order_id' => $order_id,
             'approval_status' => 'approved',
             '_wpnonce' => $approve_nonce,
-            'email' => base64_encode($customer_email)
-        ], $approval_page_url);
-        
-        $disapprove_link = add_query_arg([
+        ], $base_url );
+
+        $disapprove_url = add_query_arg( [
             'action' => "vss_handle_{$type}_approval",
             'order_id' => $order_id,
             'approval_status' => 'disapproved',
             '_wpnonce' => $disapprove_nonce,
-            'email' => base64_encode($customer_email)
-        ], $approval_page_url);
+        ], $base_url );
 
-        // Build email content with enhanced styling
-        $email_content = self::get_email_header($customer_name);
-        
-        $email_content .= sprintf(
-            '<p style="font-size: 16px; line-height: 1.6; color: #333333;">Your vendor has submitted a %s for order <strong>#%s</strong> for your approval. Please review the details below and click one of the buttons to approve or request changes.</p>',
-            $type_label_lc,
-            esc_html($order->get_order_number())
+        $template_data = [
+            'customer_name' => $order->get_billing_first_name() ?: __( 'Valued Customer', 'vss' ),
+            'order' => $order,
+            'type' => $type,
+            'type_label' => $type_label,
+            'files_ids' => $files_ids,
+            'vendor_notes' => $vendor_notes,
+            'vendor' => $vendor,
+            'approve_url' => $approve_url,
+            'disapprove_url' => $disapprove_url,
+            'items' => $order->get_items(),
+        ];
+
+        $message = self::get_email_template( 'customer-approval-request', $template_data );
+
+        $sent = self::send_email( 
+            $customer_email, 
+            $subject, 
+            $message,
+            [ 'reply_to' => 'help@munchmakers.com' ]
         );
 
-        // Add vendor notes if present
-        if ($vendor_notes) {
-            $email_content .= '<div class="vss-vendor-notes">';
-            $email_content .= '<h4 style="margin: 0 0 10px 0; color: #2271b1;">' . __('Notes from Vendor:', 'vss') . '</h4>';
-            $email_content .= '<p style="margin: 0;">' . nl2br(esc_html($vendor_notes)) . '</p>';
-            $email_content .= '</div>';
-        }
-
-        // Display files for review
-        if (!empty($files_ids)) {
-            $email_content .= '<div class="vss-file-preview-container">';
-            $email_content .= '<h4 style="margin: 0 0 15px 0; color: #333333;">' . __('Files for Your Review:', 'vss') . '</h4>';
-            
-            foreach ($files_ids as $file_id) {
-                $file_url = wp_get_attachment_url($file_id);
-                $file_path = get_attached_file($file_id);
-                $file_name = $file_path ? basename($file_path) : __('Attached File', 'vss');
-                
-                if ($file_url) {
-                    $email_content .= '<div style="margin-bottom: 15px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #fafafa;">';
-                    
-                    // File name and download link
-                    $email_content .= '<p style="margin: 0 0 10px 0; font-weight: bold;">';
-                    $email_content .= '<a href="' . esc_url($file_url) . '" style="color: #2271b1; text-decoration: none;">' . esc_html($file_name) . '</a>';
-                    $email_content .= '</p>';
-                    
-                    // Image preview if applicable
-                    if (wp_attachment_is_image($file_id)) {
-                        $img_src_array = wp_get_attachment_image_src($file_id, 'large');
-                        if ($img_src_array && isset($img_src_array[0])) {
-                            $email_content .= '<a href="' . esc_url($file_url) . '" style="display: block; text-align: center;">';
-                            $email_content .= '<img src="' . esc_url($img_src_array[0]) . '" alt="' . esc_attr($file_name) . '" style="max-width: 100%; height: auto; max-height: 400px; border: 1px solid #dddddd; border-radius: 5px;" />';
-                            $email_content .= '</a>';
-                        }
-                    }
-                    
-                    $email_content .= '</div>';
-                }
-            }
-            
-            $email_content .= '</div>';
-        }
-
-        // Enhanced button section
-        $email_content .= '<div class="vss-button-container">';
-        $email_content .= '<h3 style="margin: 0 0 20px 0; color: #333333;">' . __('Please select your response:', 'vss') . '</h3>';
-        
-        // Approve button
-        $email_content .= '<a href="' . esc_url($approve_link) . '" class="vss-email-button vss-email-button-approve" style="background-color: #4CAF50; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-size: 18px; font-weight: bold; display: inline-block; margin: 0 10px;">';
-        $email_content .= '✓ ' . __('APPROVE', 'vss');
-        $email_content .= '</a>';
-        
-        // Disapprove button
-        $email_content .= '<a href="' . esc_url($disapprove_link) . '" class="vss-email-button vss-email-button-disapprove" style="background-color: #f44336; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-size: 18px; font-weight: bold; display: inline-block; margin: 0 10px;">';
-        $email_content .= '✗ ' . __('REQUEST CHANGES', 'vss');
-        $email_content .= '</a>';
-        
-        $email_content .= '</div>';
-
-        // Alternative text links
-        $email_content .= '<div style="margin-top: 30px; padding: 20px; background-color: #f5f5f5; border-radius: 5px;">';
-        $email_content .= '<p style="margin: 0 0 10px 0; font-size: 14px; color: #666666;">' . __('If the buttons above do not work, please copy and paste one of these links into your browser:', 'vss') . '</p>';
-        $email_content .= '<p style="margin: 5px 0; font-size: 12px; word-break: break-all;">';
-        $email_content .= '<strong>' . __('To Approve:', 'vss') . '</strong><br>';
-        $email_content .= '<span style="color: #2271b1;">' . esc_url($approve_link) . '</span>';
-        $email_content .= '</p>';
-        $email_content .= '<p style="margin: 5px 0; font-size: 12px; word-break: break-all;">';
-        $email_content .= '<strong>' . __('To Request Changes:', 'vss') . '</strong><br>';
-        $email_content .= '<span style="color: #2271b1;">' . esc_url($disapprove_link) . '</span>';
-        $email_content .= '</p>';
-        $email_content .= '</div>';
-
-        // Footer
-        $email_content .= self::get_email_footer();
-
-        if (self::send_email($customer_email, $subject, $email_content, 'help@munchmakers.com', 'MunchMakers Support')) {
-            $order->add_order_note(sprintf(__('%s approval request email sent to customer.', 'vss'), $type_label_uc));
-            
-            // Store email sent timestamp
-            update_post_meta($order_id, "_vss_{$type}_email_sent_at", time());
+        if ( $sent ) {
+            update_post_meta( $order_id, "_vss_{$type}_email_sent_at", time() );
+            $order->add_order_note( sprintf( 
+                __( '%s approval request email sent to customer.', 'vss' ), 
+                $type_label 
+            ) );
         } else {
-            $order->add_order_note(sprintf(__('Failed to send %s approval request email to customer.', 'vss'), $type_label_uc));
-        }
-    }
-
-    /**
-     * Get email header template
-     */
-    private static function get_email_header($customer_name) {
-        $header = '<div style="margin-bottom: 30px;">';
-        $header .= '<p style="font-size: 18px; color: #333333; margin: 0 0 20px 0;">' . sprintf(__('Hello %s,', 'vss'), esc_html($customer_name)) . '</p>';
-        return $header;
-    }
-
-    /**
-     * Get email footer template
-     */
-    private static function get_email_footer() {
-        $footer = '<div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0;">';
-        $footer .= '<p style="font-size: 14px; color: #666666; margin: 0 0 10px 0;">';
-        $footer .= __('If you have any questions or need assistance, please reply to this email or contact us at help@munchmakers.com.', 'vss');
-        $footer .= '</p>';
-        $footer .= '<p style="font-size: 14px; color: #666666; margin: 0;">';
-        $footer .= __('Thank you,', 'vss') . '<br>';
-        $footer .= '<strong>' . __('The MunchMakers Team', 'vss') . '</strong>';
-        $footer .= '</p>';
-        $footer .= '</div>';
-        return $footer;
-    }
-
-    /**
-     * Send new assignment email to vendor
-     */
-    public static function send_new_assignment_email($order_id, $vendor_id) {
-        $order = wc_get_order($order_id);
-        $vendor_user = get_userdata($vendor_id);
-
-        if (!$order || !$vendor_user || empty($vendor_user->user_email)) {
-            return;
+            $order->add_order_note( sprintf( 
+                __( 'Failed to send %s approval request email to customer.', 'vss' ), 
+                $type_label 
+            ) );
         }
 
-        $subject = sprintf(__('New Order #%s Assigned to You - %s', 'vss'), $order->get_order_number(), get_bloginfo('name'));
-        $vendor_portal_link = home_url('/vendor-portal/');
-        $order_link = esc_url(add_query_arg(['vss_action' => 'view_order', 'order_id' => $order_id], $vendor_portal_link));
-
-        ob_start();
-        ?>
-        <div style="font-family: Arial, sans-serif; color: #333333;">
-            <p style="font-size: 18px; margin-bottom: 20px;"><?php printf(__('Hello %s,', 'vss'), esc_html($vendor_user->display_name)); ?></p>
-            
-            <div style="background-color: #f0f8ff; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="font-size: 16px; margin: 0 0 10px 0;">
-                    <?php printf(__('A new order <strong>#%s</strong> has been assigned to you.', 'vss'), esc_html($order->get_order_number())); ?>
-                </p>
-                
-                <a href="<?php echo $order_link; ?>" style="display: inline-block; background-color: #2271b1; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">
-                    <?php _e('View Order Details', 'vss'); ?>
-                </a>
-            </div>
-            
-            <h3 style="color: #333333; margin-bottom: 15px;"><?php _e('Order Items:', 'vss'); ?></h3>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                <thead>
-                    <tr style="background-color: #f5f5f5;">
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;"><?php _e('Product', 'vss'); ?></th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #ddd;"><?php _e('Quantity', 'vss'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($order->get_items() as $item_id => $item): ?>
-                        <tr>
-                            <td style="padding: 10px; border-bottom: 1px solid #eee;"><?php echo esc_html($item->get_name()); ?></td>
-                            <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo esc_html($item->get_quantity()); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-            
-            <div style="margin-top: 30px; padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
-                <p style="margin: 0 0 10px 0;"><strong><?php _e('Next Steps:', 'vss'); ?></strong></p>
-                <ol style="margin: 0; padding-left: 20px;">
-                    <li><?php _e('Review the order details in your vendor portal', 'vss'); ?></li>
-                    <li><?php _e('Confirm production and set estimated ship date', 'vss'); ?></li>
-                    <li><?php _e('Upload mockups for customer approval', 'vss'); ?></li>
-                    <li><?php _e('Submit your costs for this order', 'vss'); ?></li>
-                </ol>
-            </div>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666666;">
-                <?php _e('Thank you for your partnership!', 'vss'); ?><br>
-                <?php echo esc_html(get_bloginfo('name')); ?>
-            </p>
-        </div>
-        <?php
-        $message = ob_get_clean();
-        self::send_email($vendor_user->user_email, $subject, $message);
-    }
-
-    /**
-     * Send email notifications based on order status changes
-     */
-    public static function send_status_change_emails($order_id, $old_status, $new_status, $order) {
-        if (!$order instanceof WC_Order) {
-            $order = wc_get_order($order_id);
-            if (!$order) return;
-        }
-
-        $vendor_id = get_post_meta($order_id, '_vss_vendor_user_id', true);
-        if (!$vendor_id) return;
-
-        $vendor_user = get_userdata($vendor_id);
-        if (!$vendor_user || empty($vendor_user->user_email)) return;
-
-        // Enhanced status change emails
-        if ($new_status === 'cancelled' && $old_status !== 'cancelled') {
-            $subject = sprintf(__('Order #%s Cancelled - %s', 'vss'), $order->get_order_number(), get_bloginfo('name'));
-            $order_link = esc_url(add_query_arg(['vss_action' => 'view_order', 'order_id' => $order_id], home_url('/vendor-portal/')));
-            
-            ob_start();
-            ?>
-            <div style="font-family: Arial, sans-serif; color: #333333;">
-                <p style="font-size: 18px;"><?php printf(__('Hello %s,', 'vss'), esc_html($vendor_user->display_name)); ?></p>
-                
-                <div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                    <p style="margin: 0; color: #856404;">
-                        <strong><?php _e('Important Notice:', 'vss'); ?></strong> 
-                        <?php printf(__('Order #%s has been cancelled.', 'vss'), esc_html($order->get_order_number())); ?>
-                    </p>
-                </div>
-                
-                <p><?php _e('Please halt any production work on this order immediately.', 'vss'); ?></p>
-                
-                <a href="<?php echo $order_link; ?>" style="display: inline-block; background-color: #6c757d; color: #ffffff; padding: 10px 25px; text-decoration: none; border-radius: 5px; margin-top: 15px;">
-                    <?php _e('View Order Details', 'vss'); ?>
-                </a>
-            </div>
-            <?php
-            $message = ob_get_clean();
-            self::send_email($vendor_user->user_email, $subject, $message);
-        }
-    }
-
-    /**
-     * Send customer production confirmation email
-     */
-    public static function send_customer_production_confirmation_email($order_id, $order_number_display, $estimated_ship_date) {
-        $order = wc_get_order($order_id);
-        if (!$order) return;
-
-        $email_sent_flag = '_vss_customer_production_email_sent_at';
-        $date_at_last_email_flag = '_vss_estimated_ship_date_at_last_email';
-
-        $last_sent_timestamp = get_post_meta($order_id, $email_sent_flag, true);
-        $date_at_last_email = get_post_meta($order_id, $date_at_last_email_flag, true);
-
-        if ($last_sent_timestamp && $date_at_last_email === $estimated_ship_date) {
-            return;
-        }
-
-        $customer_email = $order->get_billing_email();
-        if (!$customer_email) {
-            $order->add_order_note(__('Customer production confirmation email NOT sent: No billing email found.', 'vss'));
-            return;
-        }
-
-        $formatted_ship_date = date_i18n(wc_date_format(), strtotime($estimated_ship_date));
-        $subject = sprintf(__('Your MunchMakers Order %s is in Production!', 'vss'), esc_html($order_number_display));
-        $customer_name = $order->get_billing_first_name() ?: __('Valued Customer', 'vss');
-
-        ob_start();
-        ?>
-        <div style="font-family: Arial, sans-serif; color: #333333;">
-            <p style="font-size: 18px; margin-bottom: 20px;"><?php printf(__('Hello %s,', 'vss'), esc_html($customer_name)); ?></p>
-            
-            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h2 style="color: #155724; margin: 0 0 10px 0;">🎉 <?php _e('Great News!', 'vss'); ?></h2>
-                <p style="font-size: 16px; color: #155724; margin: 0;">
-                    <?php printf(__('Your order <strong>%s</strong> has begun production and is estimated to ship by <strong>%s</strong>.', 'vss'), 
-                        esc_html($order_number_display), 
-                        esc_html($formatted_ship_date)
-                    ); ?>
-                </p>
-            </div>
-            
-            <div style="margin: 30px 0;">
-                <h3 style="color: #333333; margin-bottom: 15px;"><?php _e('What happens next?', 'vss'); ?></h3>
-                <ul style="line-height: 1.8;">
-                    <li><?php _e('Our vendor is crafting your custom order with care', 'vss'); ?></li>
-                    <li><?php _e('You\'ll receive tracking information once your order ships', 'vss'); ?></li>
-                    <li><?php _e('We\'ll notify you of any updates along the way', 'vss'); ?></li>
-                </ul>
-            </div>
-            
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-top: 30px;">
-                <p style="margin: 0; font-size: 14px; color: #666666;">
-                    <?php _e('Questions or concerns? Simply reply to this email or contact us at help@munchmakers.com', 'vss'); ?>
-                </p>
-            </div>
-            
-            <p style="margin-top: 30px; font-size: 16px;">
-                <?php _e('Thanks for your patience as we create something special just for you!', 'vss'); ?>
-            </p>
-            
-            <p style="margin-top: 20px;">
-                <?php _e('Best regards,', 'vss'); ?><br>
-                <strong><?php _e('The MunchMakers Team', 'vss'); ?></strong>
-            </p>
-        </div>
-        <?php
-        $message = ob_get_clean();
-
-        if (self::send_email($customer_email, $subject, $message, 'help@munchmakers.com', 'MunchMakers Support')) {
-            update_post_meta($order_id, $email_sent_flag, time());
-            update_post_meta($order_id, $date_at_last_email_flag, $estimated_ship_date);
-        } else {
-            $order->add_order_note(__('Failed to send customer production confirmation email.', 'vss'));
-        }
+        return $sent;
     }
 
     /**
      * Send vendor approval confirmation email
+     *
+     * @param int $order_id
+     * @param string $type
+     * @return bool
      */
-    public static function send_vendor_approval_confirmed_email($order_id, $type = 'mockup') {
-        $order = wc_get_order($order_id);
-        if (!$order) return;
-        
-        $vendor_id = get_post_meta($order_id, '_vss_vendor_user_id', true);
-        if (!$vendor_id) return;
-        
-        $vendor_data = get_userdata($vendor_id);
-        if (!$vendor_data || empty($vendor_data->user_email)) return;
+    public static function send_vendor_approval_confirmed_email( $order_id, $type = 'mockup' ) {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return false;
+        }
 
-        $type_label_uc = ($type === 'mockup') ? __('Mockup', 'vss') : __('Production File', 'vss');
-        $subject = sprintf(__('%s Approved for Order #%s!', 'vss'), $type_label_uc, $order->get_order_number());
-        $order_portal_link = esc_url(add_query_arg(['vss_action' => 'view_order', 'order_id' => $order_id], home_url('/vendor-portal/')));
-        $tab_hash = ($type === 'mockup') ? '#tab-mockup-approval' : '#tab-prodfile-approval';
+        $vendor_id = get_post_meta( $order_id, '_vss_vendor_user_id', true );
+        if ( ! $vendor_id ) {
+            return false;
+        }
 
-        ob_start();
-        ?>
-        <div style="font-family: Arial, sans-serif; color: #333333;">
-            <p style="font-size: 18px;"><?php printf(__('Hello %s,', 'vss'), esc_html($vendor_data->display_name)); ?></p>
-            
-            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h2 style="color: #155724; margin: 0;">✅ <?php _e('Approval Received!', 'vss'); ?></h2>
-            </div>
-            
-            <p style="font-size: 16px; line-height: 1.6;">
-                <?php printf(__('Great news! The %s you submitted for order <strong>#%s</strong> has been <strong>approved</strong> by the customer.', 'vss'), 
-                    strtolower($type_label_uc), 
-                    esc_html($order->get_order_number())
-                ); ?>
-            </p>
-            
-            <p style="margin-top: 20px;">
-                <a href="<?php echo $order_portal_link . $tab_hash; ?>" style="display: inline-block; background-color: #28a745; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                    <?php _e('View Order Details', 'vss'); ?>
-                </a>
-            </p>
-            
-            <p style="margin-top: 30px; color: #666666;">
-                <?php _e('Thank you for your excellent work!', 'vss'); ?>
-            </p>
-        </div>
-        <?php
-        $message = ob_get_clean();
-        self::send_email($vendor_data->user_email, $subject, $message);
+        $vendor = get_userdata( $vendor_id );
+        if ( ! $vendor || empty( $vendor->user_email ) ) {
+            return false;
+        }
+
+        $type_label = ( $type === 'mockup' ) ? __( 'Mockup', 'vss' ) : __( 'Production File', 'vss' );
+        $subject = sprintf( 
+            __( '✅ %s Approved for Order #%s!', 'vss' ), 
+            $type_label, 
+            $order->get_order_number() 
+        );
+
+        $template_data = [
+            'vendor' => $vendor,
+            'order' => $order,
+            'type' => $type,
+            'type_label' => $type_label,
+            'portal_url' => home_url( '/vendor-portal/' ),
+            'order_url' => add_query_arg( [
+                'vss_action' => 'view_order',
+                'order_id' => $order_id,
+            ], home_url( '/vendor-portal/' ) ),
+            'tab_hash' => ( $type === 'mockup' ) ? '#tab-mockup' : '#tab-production',
+        ];
+
+        $message = self::get_email_template( 'vendor-approval-confirmed', $template_data );
+
+        return self::send_email( $vendor->user_email, $subject, $message );
     }
 
     /**
      * Send admin disapproval notification email
+     *
+     * @param int $order_id
+     * @param string $type
+     * @param string $customer_notes
+     * @return bool
      */
-    public static function send_admin_approval_disapproved_email($order_id, $type = 'mockup', $customer_notes = '') {
-        $order = wc_get_order($order_id);
-        if (!$order) return;
-        
-        $admin_email = get_option('admin_email');
-        $type_label_uc = ($type === 'mockup') ? __('Mockup', 'vss') : __('Production File', 'vss');
-        $subject = sprintf(__('%s DISAPPROVED for Order #%s - Action Required', 'vss'), $type_label_uc, $order->get_order_number());
-        $edit_order_link = esc_url(admin_url('post.php?post=' . $order_id . '&action=edit'));
+    public static function send_admin_approval_disapproved_email( $order_id, $type = 'mockup', $customer_notes = '' ) {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return false;
+        }
 
+        $admin_email = get_option( 'admin_email' );
+        $type_label = ( $type === 'mockup' ) ? __( 'Mockup', 'vss' ) : __( 'Production File', 'vss' );
+        $subject = sprintf( 
+            __( '⚠️ %s DISAPPROVED for Order #%s - Action Required', 'vss' ), 
+            $type_label, 
+            $order->get_order_number() 
+        );
+
+        $vendor_id = get_post_meta( $order_id, '_vss_vendor_user_id', true );
+        $vendor = $vendor_id ? get_userdata( $vendor_id ) : null;
+
+        $template_data = [
+            'order' => $order,
+            'type' => $type,
+            'type_label' => $type_label,
+            'customer_notes' => $customer_notes,
+            'vendor' => $vendor,
+            'edit_order_url' => admin_url( 'post.php?post=' . $order_id . '&action=edit' ),
+            'customer_email' => $order->get_billing_email(),
+            'customer_phone' => $order->get_billing_phone(),
+        ];
+
+        $message = self::get_email_template( 'admin-approval-disapproved', $template_data );
+
+        return self::send_email( $admin_email, $subject, $message );
+    }
+
+    /**
+     * Send vendor disapproval notification
+     *
+     * @param int $order_id
+     * @param string $type
+     * @param string $customer_feedback
+     * @return bool
+     */
+    public static function send_vendor_disapproval_notification( $order_id, $type, $customer_feedback = '' ) {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return false;
+        }
+
+        $vendor_id = get_post_meta( $order_id, '_vss_vendor_user_id', true );
+        if ( ! $vendor_id ) {
+            return false;
+        }
+
+        $vendor = get_userdata( $vendor_id );
+        if ( ! $vendor || empty( $vendor->user_email ) ) {
+            return false;
+        }
+
+        $type_label = ( $type === 'mockup' ) ? __( 'Mockup', 'vss' ) : __( 'Production File', 'vss' );
+        $subject = sprintf( 
+            __( '🔄 Changes Requested for %s - Order #%s', 'vss' ), 
+            $type_label, 
+            $order->get_order_number() 
+        );
+
+        $template_data = [
+            'vendor' => $vendor,
+            'order' => $order,
+            'type' => $type,
+            'type_label' => $type_label,
+            'customer_feedback' => $customer_feedback,
+            'portal_url' => home_url( '/vendor-portal/' ),
+            'order_url' => add_query_arg( [
+                'vss_action' => 'view_order',
+                'order_id' => $order_id,
+            ], home_url( '/vendor-portal/' ) ),
+            'tab_hash' => ( $type === 'mockup' ) ? '#tab-mockup' : '#tab-production',
+        ];
+
+        $message = self::get_email_template( 'vendor-disapproval-notification', $template_data );
+
+        return self::send_email( $vendor->user_email, $subject, $message );
+    }
+
+    /**
+     * Send customer production confirmation email
+     *
+     * @param int $order_id
+     * @param string $order_number
+     * @param string $estimated_ship_date
+     * @return bool
+     */
+    public static function send_customer_production_confirmation_email( $order_id, $order_number, $estimated_ship_date ) {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return false;
+        }
+
+        // Check if already sent for this date
+        $email_sent_flag = '_vss_customer_production_email_sent_at';
+        $date_flag = '_vss_estimated_ship_date_at_last_email';
+        
+        $last_sent = get_post_meta( $order_id, $email_sent_flag, true );
+        $last_date = get_post_meta( $order_id, $date_flag, true );
+        
+        if ( $last_sent && $last_date === $estimated_ship_date ) {
+            return false;
+        }
+
+        $customer_email = $order->get_billing_email();
+        if ( ! $customer_email ) {
+            $order->add_order_note( __( 'Customer production confirmation email NOT sent: No billing email found.', 'vss' ) );
+            return false;
+        }
+
+        $subject = sprintf( 
+            __( '🎯 Your Order #%s is Now in Production!', 'vss' ), 
+            $order_number 
+        );
+
+        $template_data = [
+            'customer_name' => $order->get_billing_first_name() ?: __( 'Valued Customer', 'vss' ),
+            'order' => $order,
+            'order_number' => $order_number,
+            'estimated_ship_date' => $estimated_ship_date,
+            'formatted_ship_date' => date_i18n( get_option( 'date_format' ), strtotime( $estimated_ship_date ) ),
+            'days_until_ship' => self::calculate_days_until_ship( $estimated_ship_date ),
+            'items' => $order->get_items(),
+            'tracking_url' => add_query_arg( [
+                'track_order' => $order_id,
+                'email' => $customer_email,
+            ], home_url() ),
+        ];
+
+        $message = self::get_email_template( 'customer-production-confirmation', $template_data );
+
+        $sent = self::send_email( 
+            $customer_email, 
+            $subject, 
+            $message,
+            [ 'reply_to' => 'help@munchmakers.com' ]
+        );
+
+        if ( $sent ) {
+            update_post_meta( $order_id, $email_sent_flag, time() );
+            update_post_meta( $order_id, $date_flag, $estimated_ship_date );
+            $order->add_order_note( __( 'Production confirmation email sent to customer.', 'vss' ) );
+        } else {
+            $order->add_order_note( __( 'Failed to send production confirmation email to customer.', 'vss' ) );
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Send vendor reminder email
+     *
+     * @param int $order_id
+     * @param int $vendor_id
+     * @return bool
+     */
+    public static function send_vendor_reminder_email( $order_id, $vendor_id ) {
+        $order = wc_get_order( $order_id );
+        $vendor = get_userdata( $vendor_id );
+
+        if ( ! $order || ! $vendor || empty( $vendor->user_email ) ) {
+            return false;
+        }
+
+        // Check when last reminder was sent
+        $last_reminder = get_post_meta( $order_id, '_vss_last_vendor_reminder', true );
+        if ( $last_reminder && ( time() - $last_reminder ) < DAY_IN_SECONDS ) {
+            return false; // Don't send more than one reminder per day
+        }
+
+        $subject = sprintf( 
+            __( '⏰ Reminder: Order #%s Requires Your Attention', 'vss' ), 
+            $order->get_order_number() 
+        );
+
+        $days_old = round( ( time() - $order->get_date_created()->getTimestamp() ) / DAY_IN_SECONDS );
+
+        $template_data = [
+            'vendor' => $vendor,
+            'order' => $order,
+            'days_old' => $days_old,
+            'portal_url' => home_url( '/vendor-portal/' ),
+            'order_url' => add_query_arg( [
+                'vss_action' => 'view_order',
+                'order_id' => $order_id,
+            ], home_url( '/vendor-portal/' ) ),
+            'has_ship_date' => (bool) get_post_meta( $order_id, '_vss_estimated_ship_date', true ),
+            'mockup_status' => get_post_meta( $order_id, '_vss_mockup_status', true ),
+            'production_status' => get_post_meta( $order_id, '_vss_production_file_status', true ),
+        ];
+
+        $message = self::get_email_template( 'vendor-reminder', $template_data );
+
+        $sent = self::send_email( $vendor->user_email, $subject, $message );
+
+        if ( $sent ) {
+            update_post_meta( $order_id, '_vss_last_vendor_reminder', time() );
+            $order->add_order_note( sprintf( 
+                __( 'Reminder email sent to vendor %s', 'vss' ), 
+                $vendor->display_name 
+            ) );
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Get email template
+     *
+     * @param string $template
+     * @param array $data
+     * @return string
+     */
+    private static function get_email_template( $template, $data = [] ) {
+        // Check cache
+        $cache_key = md5( $template . serialize( $data ) );
+        if ( isset( self::$templates_cache[ $cache_key ] ) ) {
+            return self::$templates_cache[ $cache_key ];
+        }
+
+        // Extract data for use in template
+        extract( $data );
+
+        // Start output buffering
         ob_start();
-        ?>
-        <div style="font-family: Arial, sans-serif; color: #333333;">
-            <p style="font-size: 18px;"><?php _e('Hello Admin,', 'vss'); ?></p>
-            
-            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h2 style="color: #721c24; margin: 0;">⚠️ <?php _e('Customer Disapproval', 'vss'); ?></h2>
-            </div>
-            
-            <p style="font-size: 16px; line-height: 1.6;">
-                <?php printf(__('The %s for order <strong>#%s</strong> has been <strong>disapproved</strong> by the customer.', 'vss'), 
-                    strtolower($type_label_uc), 
-                    esc_html($order->get_order_number())
-                ); ?>
-            </p>
-            
-            <?php if ($customer_notes): ?>
-                <div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <h3 style="color: #856404; margin: 0 0 10px 0;"><?php _e('Customer Feedback:', 'vss'); ?></h3>
-                    <p style="color: #856404; margin: 0;"><?php echo nl2br(esc_html($customer_notes)); ?></p>
-                </div>
-            <?php else: ?>
-                <p style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
-                    <?php _e('No specific feedback was provided. Please reach out to the customer for clarification.', 'vss'); ?>
-                </p>
-            <?php endif; ?>
-            
-            <h3 style="margin-top: 30px;"><?php _e('Recommended Actions:', 'vss'); ?></h3>
-            <ol style="line-height: 1.8;">
-                <li><?php _e('Contact the customer to understand their concerns', 'vss'); ?></li>
-                <li><?php _e('Coordinate with the vendor for necessary revisions', 'vss'); ?></li>
-                <li><?php _e('Submit revised files for approval', 'vss'); ?></li>
-            </ol>
-            
-            <p style="margin-top: 20px;">
-                <a href="<?php echo $edit_order_link; ?>" style="display: inline-block; background-color: #dc3545; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                    <?php _e('View Order in Admin', 'vss'); ?>
-                </a>
-            </p>
-        </div>
-        <?php
-        $message = ob_get_clean();
-        self::send_email($admin_email, $subject, $message);
-    }
-}
 
-// Additional handler for approval landing page
-class VSS_Approval_Page_Handler {
-    
-    public static function init() {
-        add_action('init', [self::class, 'add_rewrite_rules']);
-        add_filter('query_vars', [self::class, 'add_query_vars']);
-        add_action('template_redirect', [self::class, 'handle_approval_page']);
-        add_shortcode('vss_approval_handler', [self::class, 'render_approval_handler']);
-    }
-    
-    public static function add_rewrite_rules() {
-        add_rewrite_rule('^order-approval/?', 'index.php?vss_approval_page=1', 'top');
-    }
-    
-    public static function add_query_vars($vars) {
-        $vars[] = 'vss_approval_page';
-        return $vars;
-    }
-    
-    public static function handle_approval_page() {
-        if (get_query_var('vss_approval_page')) {
-            // Handle the approval action
-            if (isset($_GET['action']) && isset($_GET['order_id'])) {
-                self::process_approval_action();
-            } else {
-                // Show approval form page
-                self::show_approval_form();
-            }
-            exit;
+        // Try to load custom template first
+        $custom_template = get_stylesheet_directory() . '/vss-emails/' . $template . '.php';
+        $plugin_template = VSS_PLUGIN_PATH . 'templates/emails/' . $template . '.php';
+
+        if ( file_exists( $custom_template ) ) {
+            include $custom_template;
+        } elseif ( file_exists( $plugin_template ) ) {
+            include $plugin_template;
+        } else {
+            // Use inline template
+            self::render_inline_template( $template, $data );
         }
+
+        $content = ob_get_clean();
+
+        // Cache the result
+        self::$templates_cache[ $cache_key ] = $content;
+
+        return $content;
     }
-    
-    public static function process_approval_action() {
-        $action = sanitize_key($_GET['action']);
-        $order_id = intval($_GET['order_id']);
-        $status = isset($_GET['approval_status']) ? sanitize_key($_GET['approval_status']) : '';
-        $nonce = isset($_GET['_wpnonce']) ? sanitize_text_field($_GET['_wpnonce']) : '';
-        
-        // Extract type from action
-        $type = '';
-        if (strpos($action, 'mockup') !== false) {
-            $type = 'mockup';
-        } elseif (strpos($action, 'production_file') !== false) {
-            $type = 'production_file';
-        }
-        
-        if (!$type || !in_array($status, ['approved', 'disapproved'])) {
-            wp_die(__('Invalid approval request.', 'vss'));
-        }
-        
-        // Verify nonce
-        if (!wp_verify_nonce($nonce, "vss_{$status}_{$type}_{$order_id}")) {
-            wp_die(__('Security check failed. This link may have expired.', 'vss'));
-        }
-        
-        // Process the approval
-        $order = wc_get_order($order_id);
-        if (!$order) {
-            wp_die(__('Order not found.', 'vss'));
-        }
-        
-        // Update order meta
-        update_post_meta($order_id, "_vss_{$type}_status", $status);
-        update_post_meta($order_id, "_vss_{$type}_responded_at", time());
-        
-        // Show confirmation page
-        self::show_confirmation_page($order, $type, $status);
-    }
-    
-    public static function show_confirmation_page($order, $type, $status) {
-        $type_label = ($type === 'mockup') ? __('Mockup', 'vss') : __('Production File', 'vss');
-        ?>
-        <!DOCTYPE html>
-        <html <?php language_attributes(); ?>>
-        <head>
-            <meta charset="<?php bloginfo('charset'); ?>">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title><?php echo sprintf(__('%s Response Recorded', 'vss'), $type_label); ?></title>
-            <style>
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    background-color: #f5f5f5;
-                    margin: 0;
-                    padding: 0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 100vh;
-                }
-                .confirmation-container {
-                    background: white;
-                    padding: 40px;
-                    border-radius: 10px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    max-width: 500px;
-                    text-align: center;
-                }
-                .status-icon {
-                    font-size: 60px;
-                    margin-bottom: 20px;
-                }
-                .status-approved { color: #4CAF50; }
-                .status-disapproved { color: #f44336; }
-                h1 { color: #333; margin-bottom: 20px; }
-                p { color: #666; line-height: 1.6; margin-bottom: 20px; }
-                .order-info {
-                    background: #f9f9f9;
-                    padding: 15px;
-                    border-radius: 5px;
-                    margin: 20px 0;
-                }
-                .feedback-form {
-                    margin-top: 20px;
-                    text-align: left;
-                }
-                .feedback-form textarea {
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 5px;
-                    min-height: 100px;
-                }
-                .feedback-form button {
-                    background: #2271b1;
-                    color: white;
-                    border: none;
-                    padding: 10px 30px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    margin-top: 10px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="confirmation-container">
-                <?php if ($status === 'approved'): ?>
-                    <div class="status-icon status-approved">✅</div>
-                    <h1><?php _e('Thank You!', 'vss'); ?></h1>
-                    <p><?php printf(__('You have successfully approved the %s for order #%s.', 'vss'), $type_label, $order->get_order_number()); ?></p>
-                    <p><?php _e('We will proceed with your order immediately.', 'vss'); ?></p>
-                <?php else: ?>
-                    <div class="status-icon status-disapproved">❌</div>
-                    <h1><?php _e('Changes Requested', 'vss'); ?></h1>
-                    <p><?php printf(__('You have requested changes to the %s for order #%s.', 'vss'), $type_label, $order->get_order_number()); ?></p>
-                    <p><?php _e('Our team will contact you shortly to discuss the changes needed.', 'vss'); ?></p>
+
+    /**
+     * Render inline template
+     *
+     * @param string $template
+     * @param array $data
+     */
+    private static function render_inline_template( $template, $data ) {
+        extract( $data );
+
+        switch ( $template ) {
+            case 'vendor-new-assignment':
+                ?>
+                <div class="vss-email-content">
+                    <h2><?php printf( __( 'Hello %s,', 'vss' ), esc_html( $vendor->display_name ) ); ?></h2>
                     
-                    <div class="feedback-form">
-                        <h3><?php _e('Additional Feedback (Optional)', 'vss'); ?></h3>
-                        <form method="post" action="">
-                            <textarea name="customer_feedback" placeholder="<?php _e('Please describe what changes you would like...', 'vss'); ?>"></textarea>
-                            <button type="submit"><?php _e('Submit Feedback', 'vss'); ?></button>
-                        </form>
+                    <div class="vss-success-box">
+                        <p><?php printf( __( 'Great news! A new order <strong>#%s</strong> has been assigned to you.', 'vss' ), esc_html( $order->get_order_number() ) ); ?></p>
                     </div>
-                <?php endif; ?>
-                
-                <div class="order-info">
-                    <strong><?php _e('Order Details:', 'vss'); ?></strong><br>
-                    <?php _e('Order Number:', 'vss'); ?> #<?php echo esc_html($order->get_order_number()); ?><br>
-                    <?php _e('Date:', 'vss'); ?> <?php echo esc_html($order->get_date_created()->date_i18n(wc_date_format())); ?>
+
+                    <div class="vss-button-container">
+                        <a href="<?php echo esc_url( $order_url ); ?>" class="vss-email-button vss-email-button-primary">
+                            <?php esc_html_e( 'View Order Details', 'vss' ); ?>
+                        </a>
+                    </div>
+
+                    <h3><?php esc_html_e( 'Order Summary:', 'vss' ); ?></h3>
+                    <table class="vss-order-details">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e( 'Product', 'vss' ); ?></th>
+                                <th><?php esc_html_e( 'Quantity', 'vss' ); ?></th>
+                                <th><?php esc_html_e( 'SKU', 'vss' ); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $items as $item ) : ?>
+                                <tr>
+                                    <td><?php echo esc_html( $item->get_name() ); ?></td>
+                                    <td style="text-align: center;"><?php echo esc_html( $item->get_quantity() ); ?></td>
+                                    <td><?php echo esc_html( $item->get_product() ? $item->get_product()->get_sku() : '—' ); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                    <?php if ( $has_zakeke ) : ?>
+                        <div class="vss-highlight-box">
+                            <p><strong><?php esc_html_e( 'Note:', 'vss' ); ?></strong> <?php esc_html_e( 'This order contains customized Zakeke items. Design files will be available soon.', 'vss' ); ?></p>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="vss-email-section">
+                        <h4><?php esc_html_e( 'Shipping Information:', 'vss' ); ?></h4>
+                        <p><?php echo wp_kses_post( $shipping_address ); ?></p>
+                    </div>
+
+                    <div class="vss-email-section">
+                        <h4><?php esc_html_e( 'Next Steps:', 'vss' ); ?></h4>
+                        <ol>
+                            <li><?php esc_html_e( 'Review the order details and customer requirements', 'vss' ); ?></li>
+                            <li><?php esc_html_e( 'Confirm production and set your estimated ship date', 'vss' ); ?></li>
+                            <li><?php esc_html_e( 'Upload mockups for customer approval', 'vss' ); ?></li>
+                            <li><?php esc_html_e( 'Submit your costs for this order', 'vss' ); ?></li>
+                        </ol>
+                    </div>
+
+                    <p><?php esc_html_e( 'Thank you for your partnership!', 'vss' ); ?></p>
+                    <p><em><?php echo esc_html( get_bloginfo( 'name' ) ); ?></em></p>
                 </div>
-                
-                <p style="font-size: 14px; color: #999;">
-                    <?php _e('If you have any questions, please contact us at help@munchmakers.com', 'vss'); ?>
-                </p>
-            </div>
-        </body>
-        </html>
-        <?php
+                <?php
+                break;
+
+            case 'customer-approval-request':
+                ?>
+                <div class="vss-email-content">
+                    <h2><?php printf( __( 'Hello %s,', 'vss' ), esc_html( $customer_name ) ); ?></h2>
+                    
+                    <p><?php printf( __( 'Your %s is ready for review for order <strong>#%s</strong>.', 'vss' ), strtolower( $type_label ), esc_html( $order->get_order_number() ) ); ?></p>
+
+                    <?php if ( $vendor_notes ) : ?>
+                        <div class="vss-vendor-notes">
+                            <h4><?php esc_html_e( 'Notes from your vendor:', 'vss' ); ?></h4>
+                            <p><?php echo nl2br( esc_html( $vendor_notes ) ); ?></p>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ( ! empty( $files_ids ) ) : ?>
+                        <div class="vss-email-section">
+                            <h3><?php esc_html_e( 'Files for Your Review:', 'vss' ); ?></h3>
+                            <div style="text-align: center;">
+                                <?php foreach ( $files_ids as $file_id ) : ?>
+                                    <?php
+                                    $file_url = wp_get_attachment_url( $file_id );
+                                    if ( $file_url ) :
+                                        if ( wp_attachment_is_image( $file_id ) ) :
+                                            $img_src = wp_get_attachment_image_src( $file_id, 'large' );
+                                            if ( $img_src ) :
+                                    ?>
+                                        <div class="vss-file-preview">
+                                            <a href="<?php echo esc_url( $file_url ); ?>">
+                                                <img src="<?php echo esc_url( $img_src[0] ); ?>" alt="<?php echo esc_attr( $type_label ); ?>" />
+                                            </a>
+                                        </div>
+                                    <?php 
+                                            endif;
+                                        else :
+                                    ?>
+                                        <div class="vss-file-preview">
+                                            <a href="<?php echo esc_url( $file_url ); ?>" style="display: block; padding: 20px;">
+                                                📎 <?php echo esc_html( basename( get_attached_file( $file_id ) ) ); ?>
+                                            </a>
+                                        </div>
+                                    <?php 
+                                        endif;
+                                    endif;
+                                    ?>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="vss-button-container">
+                        <h3><?php esc_html_e( 'Please choose your response:', 'vss' ); ?></h3>
+                        <a href="<?php echo esc_url( $approve_url ); ?>" class="vss-email-button vss-email-button-approve">
+                            ✓ <?php esc_html_e( 'APPROVE', 'vss' ); ?>
+                        </a>
+                        <a href="<?php echo esc_url( $disapprove_url ); ?>" class="vss-email-button vss-email-button-disapprove">
+                            ✗ <?php esc_html_e( 'REQUEST CHANGES', 'vss' ); ?>
+                        </a>
+                    </div>
+
+                    <div class="vss-email-section" style="background-color: #f9f9f9; font-size: 14px;">
+                        <p><strong><?php esc_html_e( 'If the buttons above don\'t work:', 'vss' ); ?></strong></p>
+                        <p><?php esc_html_e( 'To Approve:', 'vss' ); ?><br>
+                        <span style="font-size: 12px; color: #666;"><?php echo esc_url( $approve_url ); ?></span></p>
+                        <p><?php esc_html_e( 'To Request Changes:', 'vss' ); ?><br>
+                        <span style="font-size: 12px; color: #666;"><?php echo esc_url( $disapprove_url ); ?></span></p>
+                    </div>
+
+                    <p><?php esc_html_e( 'Questions? Reply to this email or contact us at help@munchmakers.com', 'vss' ); ?></p>
+                </div>
+                <?php
+                break;
+
+            case 'customer-production-confirmation':
+                ?>
+                <div class="vss-email-content">
+                    <h2><?php printf( __( 'Hello %s,', 'vss' ), esc_html( $customer_name ) ); ?></h2>
+                    
+                    <div class="vss-success-box">
+                        <h3>🎉 <?php esc_html_e( 'Great News!', 'vss' ); ?></h3>
+                        <p><?php printf( __( 'Your order <strong>%s</strong> is now in production!', 'vss' ), esc_html( $order_number ) ); ?></p>
+                        <p><strong><?php printf( __( 'Estimated Ship Date: %s', 'vss' ), esc_html( $formatted_ship_date ) ); ?></strong></p>
+                        <?php if ( $days_until_ship > 0 ) : ?>
+                            <span class="vss-countdown vss-countdown-upcoming">
+                                <?php printf( _n( '%d day until shipping', '%d days until shipping', $days_until_ship, 'vss' ), $days_until_ship ); ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="vss-email-section">
+                        <h3><?php esc_html_e( 'What happens next?', 'vss' ); ?></h3>
+                        <ul>
+                            <li><?php esc_html_e( 'Our skilled vendor is carefully crafting your custom order', 'vss' ); ?></li>
+                            <li><?php esc_html_e( 'You\'ll receive tracking information once your order ships', 'vss' ); ?></li>
+                            <li><?php esc_html_e( 'We\'ll notify you of any updates along the way', 'vss' ); ?></li>
+                        </ul>
+                    </div>
+
+                    <div class="vss-email-section">
+                        <h4><?php esc_html_e( 'Your Order:', 'vss' ); ?></h4>
+                        <ul>
+                            <?php foreach ( $items as $item ) : ?>
+                                <li><?php echo esc_html( $item->get_name() ); ?> × <?php echo esc_html( $item->get_quantity() ); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+
+                    <div class="vss-highlight-box">
+                        <p><?php esc_html_e( 'Questions or need to make changes? Simply reply to this email or contact us at help@munchmakers.com', 'vss' ); ?></p>
+                    </div>
+
+                    <p><?php esc_html_e( 'Thank you for your patience as we create something special just for you!', 'vss' ); ?></p>
+                    <p><strong><?php esc_html_e( 'The MunchMakers Team', 'vss' ); ?></strong></p>
+                </div>
+                <?php
+                break;
+
+            default:
+                ?>
+                <p><?php printf( __( 'Template "%s" not found.', 'vss' ), esc_html( $template ) ); ?></p>
+                <?php
+                break;
+        }
+    }
+
+    /**
+     * Get default email subject
+     *
+     * @param string $template
+     * @param WC_Order $order
+     * @return string
+     */
+    private static function get_default_subject( $template, $order ) {
+        $subjects = [
+            'vendor-order-cancelled' => sprintf( __( '❌ Order #%s Cancelled', 'vss' ), $order->get_order_number() ),
+            'vendor-order-on-hold' => sprintf( __( '⏸️ Order #%s On Hold', 'vss' ), $order->get_order_number() ),
+            'vendor-order-shipped' => sprintf( __( '📦 Order #%s Marked as Shipped', 'vss' ), $order->get_order_number() ),
+            'vendor-order-completed' => sprintf( __( '✅ Order #%s Completed', 'vss' ), $order->get_order_number() ),
+        ];
+
+        return isset( $subjects[ $template ] ) ? $subjects[ $template ] : sprintf( __( 'Order #%s Update', 'vss' ), $order->get_order_number() );
+    }
+
+    /**
+     * Check if order has Zakeke items
+     *
+     * @param WC_Order $order
+     * @return bool
+     */
+    private static function order_has_zakeke_items( $order ) {
+        foreach ( $order->get_items() as $item ) {
+            if ( $item->get_meta( 'zakeke_data', true ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Calculate days until ship
+     *
+     * @param string $ship_date
+     * @return int
+     */
+    private static function calculate_days_until_ship( $ship_date ) {
+        $ship_timestamp = strtotime( $ship_date );
+        $today_timestamp = current_time( 'timestamp' );
+        $diff = $ship_timestamp - $today_timestamp;
+        return max( 0, ceil( $diff / DAY_IN_SECONDS ) );
+    }
+
+    /**
+     * Log email
+     *
+     * @param string|array $to
+     * @param string $subject
+     * @param bool $sent
+     */
+    private static function log_email( $to, $subject, $sent ) {
+        $log_entry = [
+            'to' => is_array( $to ) ? implode( ', ', $to ) : $to,
+            'subject' => $subject,
+            'sent' => $sent,
+            'timestamp' => current_time( 'mysql' ),
+        ];
+
+        // Store in custom table or as option
+        $email_log = get_option( 'vss_email_log', [] );
+        array_unshift( $email_log, $log_entry );
+        
+        // Keep only last 100 entries
+        $email_log = array_slice( $email_log, 0, 100 );
+        
+        update_option( 'vss_email_log', $email_log );
+    }
+
+    /**
+     * AJAX handler for sending test email
+     */
+    public static function ajax_send_test_email() {
+        check_ajax_referer( 'vss_admin_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => __( 'Permission denied.', 'vss' ) ] );
+        }
+
+        $email_type = isset( $_POST['email_type'] ) ? sanitize_key( $_POST['email_type'] ) : '';
+        $recipient = isset( $_POST['recipient'] ) ? sanitize_email( $_POST['recipient'] ) : get_option( 'admin_email' );
+
+        if ( ! is_email( $recipient ) ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid email address.', 'vss' ) ] );
+        }
+
+        // Create test data
+        $test_order = wc_create_order();
+        $test_order->set_order_key( 'test_' . uniqid() );
+        $test_order->add_product( wc_get_product( get_option( 'woocommerce_placeholder_image', 0 ) ) ?: new WC_Product(), 1 );
+        $test_order->set_billing_email( $recipient );
+        $test_order->set_billing_first_name( 'Test' );
+        $test_order->set_billing_last_name( 'Customer' );
+
+        $sent = false;
+        $subject = sprintf( __( '[TEST] %s Email', 'vss' ), ucfirst( str_replace( '_', ' ', $email_type ) ) );
+
+        switch ( $email_type ) {
+            case 'vendor_assignment':
+                $test_vendor = wp_get_current_user();
+                update_post_meta( $test_order->get_id(), '_vss_vendor_user_id', $test_vendor->ID );
+                $sent = self::send_new_assignment_email( $test_order->get_id(), $test_vendor->ID );
+                break;
+
+            case 'customer_approval':
+                update_post_meta( $test_order->get_id(), '_vss_mockup_files', [ get_option( 'woocommerce_placeholder_image', 0 ) ] );
+                $sent = self::send_customer_approval_request_email( $test_order->get_id(), 'mockup' );
+                break;
+
+            case 'production_confirmation':
+                $sent = self::send_customer_production_confirmation_email( 
+                    $test_order->get_id(), 
+                    $test_order->get_order_number(), 
+                    date( 'Y-m-d', strtotime( '+7 days' ) ) 
+                );
+                break;
+
+            default:
+                $message = '<p>' . sprintf( __( 'This is a test %s email from Vendor Order Manager.', 'vss' ), $email_type ) . '</p>';
+                $sent = self::send_email( $recipient, $subject, $message );
+                break;
+        }
+
+        // Clean up test order
+        $test_order->delete( true );
+
+        if ( $sent ) {
+            wp_send_json_success( [ 'message' => sprintf( __( 'Test email sent to %s', 'vss' ), $recipient ) ] );
+        } else {
+            wp_send_json_error( [ 'message' => __( 'Failed to send test email. Please check your email settings.', 'vss' ) ] );
+        }
     }
 }
