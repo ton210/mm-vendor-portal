@@ -1,0 +1,45 @@
+/* Vendor Order Manager v5.1.4 Styles */
+
+/* --- Main Dashboard Widgets --- */
+.vss-dashboard-widgets-wrapper { margin-top: 20px; }
+.vss-dashboard-widgets { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.vss-stat-box { background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04); border-left-width: 4px; border-left-color: #72aee6; }
+.vss-stat-box.is-critical { border-left-color: #d63638; }
+.vss-stat-box .postbox-header { border-bottom: 0; padding: 12px; display: flex; align-items: center; gap: 10px; }
+.vss-stat-box .postbox-header h2 { font-size: 16px; margin: 0; padding: 0; color: #50575e; }
+.vss-stat-box .postbox-header .dashicons { font-size: 24px; color: #787c82; }
+.vss-stat-box .inside { padding: 0 16px 16px; }
+.vss-stat-box .stat-number { font-size: 2.5em; font-weight: 500; line-height: 1.2; text-align: center; margin: 0; color: #222; }
+.vss-stat-box .stat-link { display: block; text-align: center; margin-top: 10px; }
+
+/* --- Report & Input Tables --- */
+.vss-table { width: 100%; margin-top: 15px; }
+.vss-table th { text-align: left; font-weight: 600; padding: 8px; }
+.vss-table td { padding: 8px; vertical-align: middle; }
+.vss-table .vendor-name { font-weight: 500; }
+.vss-table .late { color: #d63638; font-weight: bold; }
+.vss-table .total-row td { font-weight: bold; border-top: 2px solid #2271b1; font-size: 1.1em; }
+
+/* --- Vendor Cost Input Table --- */
+.vss-costs-table input[type="text"] { width: 100px; text-align: right; }
+.vss-costs-table .cost-product-name { font-weight: bold; }
+.vss-costs-table .cost-product-sku { color: #666; font-size: 0.9em; }
+.vss-costs-table .totals-section { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; text-align: right; }
+.vss-costs-table .totals-section p { font-size: 1.1em; margin: 5px 0; }
+.vss-costs-table .totals-section strong { min-width: 150px; display: inline-block; text-align: left; }
+.vss-costs-table .totals-section #vss-total-cost-display { font-size: 1.3em; font-weight: bold; color: #2271b1; }
+#vss-vendor-costs-box .save-costs-button { margin-top: 15px; }
+
+/* --- Admin Cost Display --- */
+#vss-vendor-payout-box .payout-line { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f1; }
+#vss-vendor-payout-box .payout-line-total { font-size: 1.2em; font-weight: bold; border-top: 2px solid #333; margin-top: 8px; }
+#vss-vendor-payout-box .payout-line span:first-child { padding-right: 15px; }
+
+/* --- Private Notes --- */
+#vss-private-notes-box #vss-notes-list { background: #fdfdfd; max-height: 250px; overflow-y: auto; border: 1px solid #ccd0d4; padding: 10px; margin-bottom: 10px; }
+#vss-private-notes-box .vss-note { border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px; }
+#vss-private-notes-box .vss-note:last-child { border-bottom: 0; margin-bottom: 0; }
+#vss-private-notes-box .vss-note-author { font-weight: bold; }
+#vss-private-notes-box .vss-note-author.is-admin { color: #2271b1; }
+#vss-private-notes-box .vss-note-date { color: #787c82; font-size: 0.9em; }
+#vss-private-notes-box .vss-note-content { margin: 5px 0 0; white-space: pre-wrap; }
