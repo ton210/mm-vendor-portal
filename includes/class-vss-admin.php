@@ -1,8 +1,9 @@
 <?php
 /**
- * VSS Admin Class
+ * VSS Admin Class - Updated with Admin Cost Input
  *
  * Handles all admin-side functionality for the Vendor Order Manager plugin.
+ * Now includes ability for admins to input costs.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -29,6 +30,9 @@ class VSS_Admin {
         add_action('vss_order_assigned_to_vendor', [self::class, 'schedule_zakeke_fetch_on_assignment_if_needed'], 20, 2);
         add_action('woocommerce_order_status_processing', [self::class, 'schedule_zakeke_fetch_on_status_processing'], 20, 1);
         add_action( 'admin_notices', [ self::class, 'display_vss_admin_notices' ] );
+        
+        // New AJAX handler for admin cost updates
+        add_action( 'wp_ajax_vss_admin_save_costs', [ self::class, 'ajax_admin_save_costs' ] );
     }
 
     /**
@@ -247,7 +251,7 @@ class VSS_Admin {
         if ($post_type !== 'shop_order' || !current_user_can('manage_woocommerce')) return;
         add_meta_box('vss-vendor-management-box',__( 'Vendor Assignment & Files', 'vss' ),[ self::class, 'render_vendor_management_meta_box' ],'shop_order','side','default');
         add_meta_box('vss-production-confirmation-box',__( 'Production Confirmation & Ship Estimate (Admin)', 'vss' ),[ self::class, 'render_production_confirmation_meta_box' ],'shop_order','side','high');
-        add_meta_box('vss-vendor-payout-box',__( 'Vendor Submitted Costs', 'vss' ),[ self::class, 'render_vendor_payout_meta_box' ],'shop_order','normal','low');
+        add_meta_box('vss-vendor-payout-box',__( 'Vendor Costs & Admin Input', 'vss' ),[ self::class, 'render_vendor_payout_meta_box' ],'shop_order','normal','low');
         add_meta_box('vss-private-notes-box',__( 'Internal Order Notes', 'vss' ),[ self::class, 'render_private_notes_box' ],'shop_order','normal','low');
     }
 
@@ -361,10 +365,62 @@ class VSS_Admin {
                 if($new_file_id !== (int)$old_file_id){ update_post_meta( $post_id, '_vss_attached_zip_id', $new_file_id ); $file_path = get_attached_file($new_file_id); $file_name = $file_path ? basename($file_path) : 'ID ' . $new_file_id; $order->add_order_note(sprintf(__('Admin attached/updated ZIP file for vendor: %s', 'vss'), esc_html($file_name))); }
             }
         } elseif ((isset($_POST['_vss_vendor_user_id']) || isset($_POST['_vss_attached_zip_id'])) && defined( 'WP_DEBUG' ) && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) { error_log("VSS Security: Attempt to save vendor management data without valid nonce for order ID: " . $post_id); }
+        
+        // NEW: Save admin costs if submitted
+        if (isset($_POST['vss_admin_costs_nonce']) && wp_verify_nonce($_POST['vss_admin_costs_nonce'], 'vss_save_admin_costs')) {
+            if (isset($_POST['vss_admin_costs']) && is_array($_POST['vss_admin_costs'])) {
+                $admin_costs = [];
+                $total_cost = 0;
+                
+                // Process line items
+                if (isset($_POST['vss_admin_costs']['line_items']) && is_array($_POST['vss_admin_costs']['line_items'])) {
+                    foreach ($_POST['vss_admin_costs']['line_items'] as $item_id => $cost) {
+                        $cost_value = floatval(str_replace(',', '.', $cost));
+                        if ($cost_value > 0) {
+                            $admin_costs['line_items'][$item_id] = $cost_value;
+                            $total_cost += $cost_value;
+                        }
+                    }
+                }
+                
+                // Process shipping cost
+                if (isset($_POST['vss_admin_costs']['shipping_cost'])) {
+                    $shipping_cost = floatval(str_replace(',', '.', $_POST['vss_admin_costs']['shipping_cost']));
+                    if ($shipping_cost > 0) {
+                        $admin_costs['shipping_cost'] = $shipping_cost;
+                        $total_cost += $shipping_cost;
+                    }
+                }
+                
+                // Save costs if any were entered
+                if (!empty($admin_costs)) {
+                    $admin_costs['total_cost'] = $total_cost;
+                    $admin_costs['saved_at'] = time();
+                    $admin_costs['saved_by'] = get_current_user_id();
+                    $admin_costs['entered_by'] = 'admin'; // Flag to indicate admin entry
+                    
+                    update_post_meta($post_id, '_vss_order_costs', $admin_costs);
+                    $order->add_order_note(sprintf(__('Admin manually entered costs: Total %s', 'vss'), wc_price($total_cost)));
+                }
+            }
+        }
     }
 
     public static function render_vendor_payout_meta_box($post) {
-        $order_id = $post->ID; $costs_raw = get_post_meta($order_id, '_vss_order_costs', true); $costs = is_array($costs_raw) ? $costs_raw : [];
+        $order_id = $post->ID; 
+        $order = wc_get_order($order_id);
+        if (!$order) { 
+            echo '<p>' . esc_html__('Error: Could not retrieve order details.', 'vss') . '</p>'; 
+            return; 
+        }
+        
+        $costs_raw = get_post_meta($order_id, '_vss_order_costs', true); 
+        $costs = is_array($costs_raw) ? $costs_raw : [];
+        
+        // Check if costs were entered by admin or vendor
+        $entered_by = isset($costs['entered_by']) ? $costs['entered_by'] : 'vendor';
+        $saved_by_user_id = isset($costs['saved_by']) ? $costs['saved_by'] : 0;
+        $saved_by_user = $saved_by_user_id ? get_userdata($saved_by_user_id) : null;
         
         // Debug mode for admins
         if (current_user_can('manage_options') && isset($_GET['vss_debug'])) {
@@ -379,123 +435,230 @@ class VSS_Admin {
             }
             echo '</div>';
         }
-        
-        if (empty($costs) || !isset($costs['total_cost']) || $costs['total_cost'] <= 0) { 
-            echo '<p>' . esc_html__('The vendor has not yet submitted their costs for this order.', 'vss') . '</p>'; 
-            if (current_user_can('manage_options')) {
-                echo '<p style="font-size:12px; color:#666;">' . esc_html__('Add ?vss_debug=1 to URL to see debug info.', 'vss') . '</p>';
-            }
-            return; 
-        }
-        $order = wc_get_order($order_id); if (!$order) { echo '<p>' . esc_html__('Error: Could not retrieve order details.', 'vss') . '</p>'; return; }
-        echo '<div class="vss-payout-details">'; $line_items_cost_total = 0;
-        if (isset($costs['line_items']) && is_array($costs['line_items'])) { echo '<h4>' . esc_html__('Item Costs:', 'vss') . '</h4>'; foreach($order->get_items() as $item_id => $item) { if (!$item instanceof WC_Order_Item) continue; if (isset($costs['line_items'][$item_id]) && is_numeric($costs['line_items'][$item_id])) { $item_cost = floatval($costs['line_items'][$item_id]); $line_items_cost_total += $item_cost; echo '<div class="payout-line"><span>' . esc_html($item->get_name()) . ' &times; ' . $item->get_quantity() . '</span><strong>' . wc_price($item_cost) . '</strong></div>';}}}
-        $shipping_cost_submitted = 0; if (isset($costs['shipping_cost']) && is_numeric($costs['shipping_cost'])) { $shipping_cost_submitted = floatval($costs['shipping_cost']); echo '<hr style="margin: 8px 0;">'; echo '<div class="payout-line"><span>' . esc_html__('Shipping Cost Submitted by Vendor:', 'vss') . '</span><strong>' . wc_price($shipping_cost_submitted) . '</strong></div>';}
-        $total_cost_calculated_display = $line_items_cost_total + $shipping_cost_submitted; echo '<hr style="margin: 8px 0;">';
-        $meta_total_cost = isset($costs['total_cost']) && is_numeric($costs['total_cost']) ? floatval($costs['total_cost']) : $total_cost_calculated_display;
-        echo '<div class="payout-line payout-line-total"><span>' . esc_html__('Total Cost Submitted by Vendor (from meta):', 'vss') . '</span><strong>' . wc_price($meta_total_cost) . '</strong></div>';
-        if (abs($meta_total_cost - $total_cost_calculated_display) > 0.01) { echo '<p><small style="color:red;">' . esc_html__('Note: Stored total cost from vendor differs from the sum of item costs + shipping cost shown above. Calculated sum is: ', 'vss') . wc_price($total_cost_calculated_display) . '</small></p>';} echo '</div>';
-    }
-
-    public static function render_vendor_management_meta_box( $post_obj ) {
-        $post_id = $post_obj->ID; wp_nonce_field( 'vss_save_vendor_management_meta', 'vss_vendor_management_nonce' );
-        $current_vendor_id = get_post_meta( $post_id, '_vss_vendor_user_id', true );
-        if (get_post_meta( $post_id, '_vss_is_split_parent', true )) { echo '<p>' . __( 'This is a parent order that has been split. Manage assignments on sub-orders.', 'vss' ) . '</p>'; return; }
-        if ($parent_id = get_post_meta( $post_id, '_vss_parent_order_id', true )) { $parent_order_obj = wc_get_order($parent_id); $parent_order_link = $parent_order_obj ? get_edit_post_link( $parent_id ) : '#'; $parent_order_number = $parent_order_obj ? $parent_order_obj->get_order_number() : $parent_id; echo '<p>' . sprintf( __( 'This is a sub-order of %s.', 'vss' ), '<a href="' . esc_url($parent_order_link) . '">Order #' . esc_html($parent_order_number) . '</a>' ) . '</p>';}
-        $vendors = get_users( [ 'role' => 'vendor-mm', 'fields' => [ 'ID', 'display_name' ] ] );
-        echo '<h4>' . __( 'Assign to Vendor-MM', 'vss' ) . '</h4><select name="_vss_vendor_user_id" style="width:100%;"><option value="0">' . __( '— Unassigned —', 'vss' ) . '</option>';
-        foreach ( $vendors as $vendor ) { echo '<option value="' . esc_attr($vendor->ID) . '"' . selected($vendor->ID, $current_vendor_id, false) . '>' . esc_html($vendor->display_name) . '</option>';}
-        echo '</select><p class="description">' . __( 'Manually assign this entire order to a vendor.', 'vss') . '</p><hr style="margin: 1em 0;">';
-        echo '<h4>' . __( 'Split Order', 'vss' ) . '</h4><p class="description">' . __('If items in this order have different default vendors (set at product level), this action will create sub-orders for each assigned vendor.', 'vss') . '</p>';
-        echo '<button type="button" id="vss-split-order-btn" class="button button-secondary" data-order-id="' . $post_id . '">' . __( 'Split Order by Product Vendor', 'vss' ) . '</button>';
-        echo '<div id="vss-split-feedback" style="margin-top:10px; font-weight: bold;"></div><hr style="margin: 1em 0;">';
-        echo '<h4>' . __( 'Upload File for Vendor-MM', 'vss' ) . '</h4>';
-        $file_id = get_post_meta( $post_id, '_vss_attached_zip_id', true );
-        if ( $file_id && get_post_status($file_id) ) { $file_url = wp_get_attachment_url( $file_id ); $file_path = get_attached_file( $file_id ); $file_name = $file_path ? basename( $file_path ) : __('Attached File', 'vss'); echo '<p><a href="' . esc_url($file_url) . '" target="_blank">' . esc_html($file_name) . '</a></p>'; echo '<button type="button" id="vss-remove-file-btn" class="button button-secondary button-small">' . __('Remove File', 'vss') . '</button>'; echo '<input type="hidden" name="_vss_remove_zip_file" id="vss-remove-zip-file-input" value="">'; }
-        else { echo '<button type="button" id="vss-upload-file-btn" class="button button-secondary">' . __('Upload ZIP File', 'vss') . '</button>';}
-        echo '<input type="hidden" name="_vss_attached_zip_id" id="vss-attached-zip-id" value="' . esc_attr($file_id) . '">';
         ?>
+        
+        <div class="vss-payout-details">
+            <?php if (!empty($costs) && isset($costs['total_cost']) && $costs['total_cost'] > 0): ?>
+                <!-- Display existing costs -->
+                <div style="background:#f9f9f9; padding:15px; margin-bottom:20px; border-radius:4px;">
+                    <h4 style="margin-top:0;"><?php _e('Current Saved Costs', 'vss'); ?></h4>
+                    
+                    <?php if ($saved_by_user): ?>
+                        <p style="font-style:italic; color:#666; margin-bottom:10px;">
+                            <?php 
+                            printf(
+                                __('Entered by %s on %s', 'vss'), 
+                                esc_html($saved_by_user->display_name),
+                                esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $costs['saved_at']))
+                            ); 
+                            ?>
+                        </p>
+                    <?php endif; ?>
+                    
+                    <?php $line_items_cost_total = 0; ?>
+                    <?php if (isset($costs['line_items']) && is_array($costs['line_items'])): ?>
+                        <h5><?php _e('Item Costs:', 'vss'); ?></h5>
+                        <?php foreach($order->get_items() as $item_id => $item): ?>
+                            <?php if (isset($costs['line_items'][$item_id]) && is_numeric($costs['line_items'][$item_id])): ?>
+                                <?php 
+                                $item_cost = floatval($costs['line_items'][$item_id]); 
+                                $line_items_cost_total += $item_cost; 
+                                ?>
+                                <div class="payout-line">
+                                    <span><?php echo esc_html($item->get_name()) . ' &times; ' . $item->get_quantity(); ?></span>
+                                    <strong><?php echo wc_price($item_cost); ?></strong>
+                                </div>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    
+                    <?php if (isset($costs['shipping_cost']) && is_numeric($costs['shipping_cost']) && $costs['shipping_cost'] > 0): ?>
+                        <hr style="margin: 8px 0;">
+                        <div class="payout-line">
+                            <span><?php _e('Shipping Cost:', 'vss'); ?></span>
+                            <strong><?php echo wc_price($costs['shipping_cost']); ?></strong>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <hr style="margin: 8px 0;">
+                    <div class="payout-line payout-line-total">
+                        <span><?php _e('Total Cost:', 'vss'); ?></span>
+                        <strong><?php echo wc_price($costs['total_cost']); ?></strong>
+                    </div>
+                </div>
+            <?php else: ?>
+                <p style="background:#fff3cd; padding:10px; border-radius:4px; border-left:4px solid #ffc107;">
+                    <?php _e('No costs have been submitted for this order yet.', 'vss'); ?>
+                </p>
+            <?php endif; ?>
+            
+            <!-- Admin Cost Input Form -->
+            <div style="background:#f0f8ff; padding:15px; border-radius:4px; border:1px solid #b8daff;">
+                <h4 style="margin-top:0;"><?php _e('Admin Cost Entry', 'vss'); ?></h4>
+                <p style="font-style:italic; color:#666; margin-bottom:15px;">
+                    <?php _e('As an admin, you can manually enter or override costs for this order.', 'vss'); ?>
+                </p>
+                
+                <?php wp_nonce_field('vss_save_admin_costs', 'vss_admin_costs_nonce'); ?>
+                
+                <table class="widefat" style="margin-bottom:15px;">
+                    <thead>
+                        <tr>
+                            <th><?php _e('Item', 'vss'); ?></th>
+                            <th><?php _e('Quantity', 'vss'); ?></th>
+                            <th><?php _e('Cost', 'vss'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($order->get_items() as $item_id => $item): ?>
+                            <tr>
+                                <td>
+                                    <strong><?php echo esc_html($item->get_name()); ?></strong>
+                                    <?php if ($product = $item->get_product()): ?>
+                                        <br><small>SKU: <?php echo esc_html($product->get_sku() ?: 'N/A'); ?></small>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo esc_html($item->get_quantity()); ?></td>
+                                <td>
+                                    <?php echo get_woocommerce_currency_symbol(); ?>
+                                    <input type="text" 
+                                           name="vss_admin_costs[line_items][<?php echo esc_attr($item_id); ?>]" 
+                                           class="vss-admin-cost-input" 
+                                           value="<?php echo isset($costs['line_items'][$item_id]) ? esc_attr($costs['line_items'][$item_id]) : ''; ?>"
+                                           placeholder="0.00"
+                                           style="width:100px; text-align:right;">
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <tr>
+                            <td colspan="2"><strong><?php _e('Shipping Cost', 'vss'); ?></strong></td>
+                            <td>
+                                <?php echo get_woocommerce_currency_symbol(); ?>
+                                <input type="text" 
+                                       name="vss_admin_costs[shipping_cost]" 
+                                       class="vss-admin-cost-input" 
+                                       value="<?php echo isset($costs['shipping_cost']) ? esc_attr($costs['shipping_cost']) : ''; ?>"
+                                       placeholder="0.00"
+                                       style="width:100px; text-align:right;">
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2"><strong><?php _e('Total Cost:', 'vss'); ?></strong></td>
+                            <td>
+                                <strong id="vss-admin-total-cost-display" data-currency="<?php echo esc_attr(get_woocommerce_currency_symbol()); ?>">
+                                    <?php echo get_woocommerce_currency_symbol(); ?>0.00
+                                </strong>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+                
+                <button type="button" class="button button-primary" id="vss-admin-save-costs-btn">
+                    <?php _e('Save Admin Costs', 'vss'); ?>
+                </button>
+                
+                <p class="description" style="margin-top:10px;">
+                    <?php _e('Note: Saving costs here will override any vendor-submitted costs. The vendor will be able to see these admin-entered costs.', 'vss'); ?>
+                </p>
+            </div>
+        </div>
+        
         <script type="text/javascript">
-            jQuery(document).ready(function($){
-                $('#vss-split-order-btn').on('click',function(e){
-                    e.preventDefault();var t=$(this),o=t.data("order-id"),n=$("#vss-split-feedback");
-                    if(!confirm("<?php echo esc_js(__("Are you sure you want to split this order based on product vendors? This action cannot be easily undone and will create new sub-orders.", "vss")); ?>"))return;
-                    n.html('<span style="color:#f5a623;"><?php echo esc_js( __("Splitting...", "vss") ); ?></span>'); t.prop("disabled",!0);
-                    $.post(ajaxurl,{action:"vss_split_order",order_id:o,_ajax_nonce:"<?php echo wp_create_nonce("vss_split_order_nonce"); ?>"},function(e){
-                        if(e.success){n.html('<span style="color:green;">'+e.data.message+" <?php echo esc_js( __('Page will refresh.', 'vss') ); ?></span>");setTimeout(function(){location.reload()},2500);
-                        }else{n.html('<span style="color:red;">'+e.data.message+"</span>");t.prop("disabled",!1);}
-                    }).fail(function(){n.html('<span style="color:red;"><?php echo esc_js( __("AJAX error. Please try again or check browser console.", "vss") ); ?></span>'); t.prop("disabled", false);});
+        jQuery(document).ready(function($) {
+            // Calculate total in real-time
+            function calculateAdminTotal() {
+                var total = 0;
+                $('.vss-admin-cost-input').each(function() {
+                    var val = $(this).val().replace(/,/g, '.').replace(/[^0-9\.]/g, '');
+                    var numVal = parseFloat(val);
+                    if (!isNaN(numVal)) {
+                        total += numVal;
+                    }
                 });
-                var mediaUploader;
-                $('#vss-upload-file-btn').click(function(e){
-                    e.preventDefault(); if(mediaUploader){mediaUploader.open(); return;}
-                    mediaUploader=wp.media.frames.file_frame=wp.media({
-                        title:"<?php echo esc_js( __('Choose ZIP File','vss') ); ?>",
-                        button:{text:"<?php echo esc_js( __('Use This File','vss') ); ?>"},
-                        library:{type:"application/zip"},multiple:!1
-                    });
-                    mediaUploader.on("select",function(){var e=mediaUploader.state().get("selection").first().toJSON();$("#vss-attached-zip-id").val(e.id);$('#post').submit();});
-                    mediaUploader.open();
-                });
-                $('#vss-remove-file-btn').click(function(e){
-                    e.preventDefault(); if(confirm("<?php echo esc_js( __('Are you sure you want to remove this file?','vss') ); ?>")){$('#vss-attached-zip-id').val('');$('#vss-remove-zip-file-input').val('1');$('#post').submit();}
-                });
+                
+                var currency = $('#vss-admin-total-cost-display').data('currency') || '$';
+                $('#vss-admin-total-cost-display').text(currency + total.toFixed(2));
+            }
+            
+            // Update total on input
+            $('.vss-admin-cost-input').on('keyup change paste', function() {
+                calculateAdminTotal();
             });
+            
+            // Initialize total
+            calculateAdminTotal();
+            
+            // Save costs button handler
+            $('#vss-admin-save-costs-btn').on('click', function() {
+                // Submit the form
+                $('#post').submit();
+            });
+        });
         </script>
         <?php
     }
 
-    public static function ajax_split_order_handler() {
-        check_ajax_referer( 'vss_split_order_nonce', '_ajax_nonce' ); $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
-        if (!$order_id || !current_user_can('edit_shop_order', $order_id)) { wp_send_json_error(['message' => __('Permission denied or invalid order ID.', 'vss')]); }
-        $original_order = wc_get_order($order_id); if (!$original_order) { wp_send_json_error(['message' => __('Original order not found.', 'vss')]); }
-        if (get_post_meta($order_id, '_vss_is_split_parent', true)) { wp_send_json_error(['message' => __('This order has already been split.', 'vss')]); }
-        if (get_post_meta($order_id, '_vss_parent_order_id', true)) { wp_send_json_error(['message' => __('Cannot split a sub-order.', 'vss')]); }
-        $items_by_vendor = []; foreach ($original_order->get_items() as $item_id => $item) { $product_id = $item->get_product_id(); $product_vendor_id = get_post_meta($product_id, '_vss_vendor_user_id', true); $vendor_id_for_item = $product_vendor_id ? intval($product_vendor_id) : 'unassigned'; $items_by_vendor[$vendor_id_for_item][] = $item; }
-        if (count($items_by_vendor) <= 1) { $single_vendor_key = key($items_by_vendor); if ($single_vendor_key === 'unassigned' && count($items_by_vendor['unassigned']) === count($original_order->get_items())) { wp_send_json_error(['message' => __('All items are unassigned. Assign vendors to products or assign the order manually.', 'vss')]); } else if (count($items_by_vendor) === 1 && $single_vendor_key !== 'unassigned') { wp_send_json_error(['message' => __('All items belong to one vendor. No split needed.', 'vss')]); } else { wp_send_json_error(['message' => __('Items for one vendor group or all unassigned. No split needed.', 'vss')]); }}
-        $child_order_ids = []; $original_order->add_order_note(__('Attempting to split order by product vendor...', 'vss')); $errors_during_split = [];
-        foreach ($items_by_vendor as $vendor_id_key => $items_for_vendor) {
-            if ('unassigned' === $vendor_id_key || !$vendor_id_key) { $un_names = []; foreach($items_for_vendor as $ui) $un_names[] = $ui->get_name(); $errors_during_split[] = sprintf(__('Items "%s" have no default vendor; not split.', 'vss'), implode(', ',$un_names)); continue; }
-            $vendor_id = intval($vendor_id_key); $vendor_user = get_userdata($vendor_id); if(!$vendor_user){ $errors_during_split[] = sprintf(__('Vendor ID %d not found; items not split.', 'vss'), $vendor_id); continue; }
-            try {
-                $sub_order = wc_create_order(['customer_id' => $original_order->get_customer_id()]); if (is_wp_error($sub_order)) { $errors_during_split[] = sprintf(__('Error creating sub-order for %s: %s', 'vss'), $vendor_user->display_name, $sub_order->get_error_message()); continue; }
-                foreach ($items_for_vendor as $itm) { $prd = $itm->get_product(); if ($prd) { $sub_order->add_product($prd, $itm->get_quantity(), ['variation' => $itm->get_variation_attributes(), 'totals' => ['subtotal' => $itm->get_subtotal(), 'subtotal_tax' => $itm->get_subtotal_tax(), 'total' => $itm->get_total(), 'tax' => $itm->get_total_tax(), 'tax_data' => $itm->get_taxes()]]); }}
-                $sub_order->set_address($original_order->get_address('billing'), 'billing'); $sub_order->set_address($original_order->get_address('shipping'), 'shipping');
-                $sub_order->set_payment_method($original_order->get_payment_method()); $sub_order->set_payment_method_title($original_order->get_payment_method_title()); $sub_order->set_customer_note($original_order->get_customer_note());
-                $sub_order->update_meta_data('_vss_vendor_user_id', $vendor_id); update_post_meta($sub_order->get_id(), '_vss_assigned_at', time()); $sub_order->update_meta_data('_vss_parent_order_id', $order_id); $sub_order->update_meta_data('_vss_sub_order_shipping_apportioned', false);
-                $sub_order->calculate_totals(true); $sub_order->set_status('wc-processing', sprintf(__('Sub-order from parent #%s.', 'vss'), $original_order->get_order_number())); $sub_order->add_order_note(sprintf(__('Assigned to vendor: %s.', 'vss'), $vendor_user->display_name)); $sub_order->save();
-                $child_order_ids[] = $sub_order->get_id(); do_action('vss_order_assigned_to_vendor', $sub_order->get_id(), $vendor_id);
-            } catch (Exception $e) { $errors_during_split[] = sprintf(__('Exception for vendor %s: %s', 'vss'), $vendor_user->display_name, $e->getMessage());}
+    /**
+     * AJAX handler for admin saving costs
+     */
+    public static function ajax_admin_save_costs() {
+        check_ajax_referer('vss_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('Permission denied.', 'vss')]);
         }
-        if (!empty($child_order_ids)) {
-            $child_links = array_map(function($id){ return '#'.$id; }, $child_order_ids);
-            $original_order->update_status('completed', sprintf(__('Order split into sub-orders: %s', 'vss'), implode(', ', $child_links)));
-            $original_order->update_meta_data('_vss_is_split_parent', true); $original_order->update_meta_data('_vss_child_orders', $child_order_ids); $msg = __('Order successfully split.', 'vss');
-            if(!empty($errors_during_split)) { $msg .= ' ' . __('Issues: ', 'vss') . implode('; ', $errors_during_split); $original_order->add_order_note(__('Split completed with issues: ', 'vss') . implode('; ', $errors_during_split));} wp_send_json_success(['message' => $msg]);
-        } else { $msg = __('Splitting resulted in no new sub-orders.', 'vss'); if(!empty($errors_during_split)) { $msg .= ' ' . __('Issues: ', 'vss') . implode('; ', $errors_during_split);} $original_order->add_order_note($msg); wp_send_json_error(['message' => $msg]); }
-    }
-
-    public static function add_vendor_order_column($columns){ $reordered = []; foreach ($columns as $k => $v) { $reordered[$k] = $v; if ($k === 'order_status') { $reordered['vendor'] = __('Vendor-MM', 'vss'); $reordered['mockup_status'] = __('Mockup', 'vss'); $reordered['prod_file_status'] = __('Prod. Files', 'vss');}} return $reordered; }
-    public static function populate_vendor_order_column($column, $post_id){
-        switch ($column) {
-            case 'vendor': if (get_post_meta($post_id, '_vss_is_split_parent', true)) { echo '<strong>'.__('Split Parent','vss').'</strong>'; return; } $vid = get_post_meta($post_id, '_vss_vendor_user_id', true); if ($vid) { $v = get_user_by('id', $vid); echo esc_html($v ? $v->display_name : __('Unknown Vendor', 'vss')); } else { echo '—';} break;
-            case 'mockup_status': self::display_approval_status_icon(get_post_meta($post_id, '_vss_mockup_status', true) ?: 'none'); break;
-            case 'prod_file_status': self::display_approval_status_icon(get_post_meta($post_id, '_vss_production_file_status', true) ?: 'none'); break;
+        
+        $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+        if (!$order_id) {
+            wp_send_json_error(['message' => __('Invalid order ID.', 'vss')]);
+        }
+        
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            wp_send_json_error(['message' => __('Order not found.', 'vss')]);
+        }
+        
+        $costs = isset($_POST['costs']) ? $_POST['costs'] : [];
+        $admin_costs = [];
+        $total_cost = 0;
+        
+        // Process line items
+        if (isset($costs['line_items']) && is_array($costs['line_items'])) {
+            foreach ($costs['line_items'] as $item_id => $cost) {
+                $cost_value = floatval(str_replace(',', '.', $cost));
+                if ($cost_value > 0) {
+                    $admin_costs['line_items'][intval($item_id)] = $cost_value;
+                    $total_cost += $cost_value;
+                }
+            }
+        }
+        
+        // Process shipping cost
+        if (isset($costs['shipping_cost'])) {
+            $shipping_cost = floatval(str_replace(',', '.', $costs['shipping_cost']));
+            if ($shipping_cost > 0) {
+                $admin_costs['shipping_cost'] = $shipping_cost;
+                $total_cost += $shipping_cost;
+            }
+        }
+        
+        // Save costs
+        if (!empty($admin_costs)) {
+            $admin_costs['total_cost'] = $total_cost;
+            $admin_costs['saved_at'] = time();
+            $admin_costs['saved_by'] = get_current_user_id();
+            $admin_costs['entered_by'] = 'admin';
+            
+            update_post_meta($order_id, '_vss_order_costs', $admin_costs);
+            $order->add_order_note(sprintf(__('Admin manually entered costs: Total %s', 'vss'), wc_price($total_cost)));
+            
+            wp_send_json_success([
+                'message' => __('Costs saved successfully.', 'vss'),
+                'total' => wc_price($total_cost)
+            ]);
+        } else {
+            wp_send_json_error(['message' => __('No valid costs entered.', 'vss')]);
         }
     }
-    private static function display_approval_status_icon($status) {
-        $txt = __('N/A', 'vss'); $clr = '#909090';
-        switch ($status) { case 'pending_approval': $txt=__('Pending','vss'); $clr='#ffba00'; break; case 'approved': $txt=__('Approved','vss'); $clr='#4CAF50'; break; case 'disapproved': $txt=__('Disapproved','vss'); $clr='#F44336'; break; case 'none': default: $txt=__('Not Sent','vss'); $clr='#ababab'; break; }
-        echo '<span class="vss-admin-status-badge" style="display:inline-block;padding:3px 8px;background-color:'.esc_attr($clr).';color:white;border-radius:4px;font-size:0.85em;text-align:center;min-width:70px;">'.esc_html($txt).'</span>';
-    }
-    public static function add_vendor_filter_dropdown($post_type) {
-        if ('shop_order' !== $post_type || !current_user_can('manage_woocommerce')) return;
-        $vendors = get_users(['role'=>'vendor-mm','fields'=>['ID','display_name']]); $current = isset($_GET['vss_vendor_filter']) ? sanitize_text_field($_GET['vss_vendor_filter']) : '';
-        ?><select name="vss_vendor_filter" id="vss_vendor_filter"><option value=""><?php _e('All Vendors','vss'); ?></option><option value="unassigned" <?php selected($current,'unassigned'); ?>><?php _e('-- Unassigned --','vss'); ?></option><?php foreach($vendors as $v):?><option value="<?php echo esc_attr($v->ID); ?>" <?php selected($current,$v->ID); ?>><?php echo esc_html($v->display_name); ?></option><?php endforeach; ?></select><?php
-    }
-    public static function handle_vendor_filter_query($query) {
-        if (is_admin() && $query->is_main_query() && isset($query->query_vars['post_type']) && $query->query_vars['post_type']==='shop_order' && isset($_GET['vss_vendor_filter'])) {
-            $filter = sanitize_text_field($_GET['vss_vendor_filter']); if (!empty($filter)) { if ($filter==='unassigned') { $mq = $query->get('meta_query'); if(!is_array($mq)) $mq=[]; $mq[]=['relation'=>'OR',['key'=>'_vss_vendor_user_id','compare'=>'NOT EXISTS'],['key'=>'_vss_vendor_user_id','value'=>['','0'],'compare'=>'IN']]; $query->set('meta_query',$mq); } else { $query->set('meta_key','_vss_vendor_user_id'); $query->set('meta_value',intval($filter));}}
-        }
-    }
-} // End class VSS_Admin
