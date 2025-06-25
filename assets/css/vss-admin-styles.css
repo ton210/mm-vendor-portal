@@ -11,6 +11,26 @@
     gap: 20px; 
 }
 
+
+/* Private Notes Improvements */
+#vss-private-notes-box { 
+    background: #fff;
+}
+
+#vss-private-notes-box .inside {
+    padding: 15px;
+}
+
+#vss-private-notes-box #vss-notes-list { 
+    background: #fdfdfd; 
+    max-height: 250px; 
+    overflow-y: auto; 
+    border: 1px solid #ccd0d4; 
+    padding: 10px; 
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
 .vss-stat-box { 
     background: #fff; 
     border: 1px solid #ccd0d4; 

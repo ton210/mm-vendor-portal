@@ -301,13 +301,14 @@ class VSS_Admin {
     public static function render_private_notes_box($post) {
         if ( ! $post instanceof WP_Post || empty( $post->ID ) ) { if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG ) { error_log( 'VSS Critical Error: render_private_notes_box called with invalid $post object. Post data: ' . print_r($post, true) ); } echo '<p>' . esc_html__( 'Error: Could not load notes. Invalid post object provided to meta box.', 'vss' ) . '</p>'; return; }
         wp_nonce_field('vss_save_private_note_meta', 'vss_private_note_nonce');
-        echo '<h4>' . esc_html__('Current Internal Notes', 'vss') . '</h4>';
-        echo '<div id="vss-notes-list" style="border: 1px solid #ccd0d4; padding: 10px; margin-bottom: 15px; max-height: 250px; overflow-y: auto; background: #f9f9f9;">';
+        
         $notes_raw = get_post_meta($post->ID, '_vss_private_notes', true); $notes = is_array($notes_raw) ? $notes_raw : [];
+        
         if ( empty( $notes ) ) {
-            if ( !is_array($notes_raw) && !empty($notes_raw) ) { echo '<p style="color:red;">' . esc_html__('Note data may be corrupted. Expected an array of notes but received a different data type.', 'vss') . '</p>'; if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG ) { error_log( 'VSS Warning: _vss_private_notes for post ID ' . $post->ID . ' is not an array. Data type: ' . gettype($notes_raw) . '. Raw Data: ' . print_r( $notes_raw, true ) ); } }
-            else { echo '<p>' . esc_html__('No private notes yet for this order.', 'vss') . '</p>'; }
+            echo '<p style="margin-top:0;">' . esc_html__('No internal notes yet for this order.', 'vss') . '</p>';
         } else {
+            echo '<h4 style="margin-top:0;">' . esc_html__('Current Internal Notes', 'vss') . '</h4>';
+            echo '<div id="vss-notes-list" style="border: 1px solid #ccd0d4; padding: 10px; margin-bottom: 15px; max-height: 250px; overflow-y: auto; background: #f9f9f9;">';
             $reversed_notes = (is_array($notes) && !empty($notes)) ? array_reverse($notes) : []; if (empty($reversed_notes) && !empty($notes) && defined( 'WP_DEBUG' ) && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG ) { error_log( 'VSS Warning: array_reverse failed or resulted in empty array for non-empty notes. Post ID ' . $post->ID ); }
             foreach ($reversed_notes as $index => $note_item) {
                 if ( !is_array($note_item) || !array_key_exists('user_id', $note_item) || !array_key_exists('timestamp', $note_item) || !array_key_exists('note', $note_item) ) { echo '<div class="vss-note" style="border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px; color:red;"><p>' . sprintf(esc_html__('Error: A note (at position %d) is malformed and cannot be displayed correctly.', 'vss'), $index) . '</p></div>'; if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG ) { error_log( 'VSS Warning: Malformed note item in _vss_private_notes for post ID ' . $post->ID . ' at original array index (before reverse) ' . (count($notes) - 1 - $index) . '. Note Data: ' . print_r( $note_item, true ) ); } continue; }
@@ -322,11 +323,13 @@ class VSS_Admin {
                 if(!is_string($note_content_raw) && defined( 'WP_DEBUG' ) && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG ) {error_log( 'VSS Warning: Note content is not a string for post ID ' . $post->ID . '. Content type: ' . gettype($note_content_raw) );}
                 echo '<div class="vss-note-content" style="margin: 5px 0 0; white-space: pre-wrap;">' . $note_display . '</div></div>';
             }
+            echo '</div>';
         }
-        echo '</div>';
-        echo '<h4 style="margin-top:20px;">' . esc_html__('Add New Internal Note:', 'vss') . '</h4>';
+        echo '<div style="margin-top:20px; padding-top:20px; border-top:1px solid #ddd;">';
+        echo '<h4 style="margin-top:0; margin-bottom:10px;">' . esc_html__('Add New Internal Note:', 'vss') . '</h4>';
         echo '<textarea name="vss_new_private_note" id="vss_new_private_note_admin" rows="4" style="width:100%; margin-bottom:10px;" placeholder="' . esc_attr__('Type your internal note here...', 'vss') . '"></textarea>';
         echo '<p class="description">' . esc_html__('This note is for internal use only (visible to admin and users with order editing capabilities who can see this box). It will not be visible to the customer or the assigned vendor through their portal.', 'vss') . '</p>';
+        echo '</div>';
     }
 
     public static function save_admin_meta_data($post_id) {
@@ -362,7 +365,28 @@ class VSS_Admin {
 
     public static function render_vendor_payout_meta_box($post) {
         $order_id = $post->ID; $costs_raw = get_post_meta($order_id, '_vss_order_costs', true); $costs = is_array($costs_raw) ? $costs_raw : [];
-        if (empty($costs) || (!isset($costs['line_items']) && !isset($costs['shipping_cost']) && !isset($costs['total_cost']))) { echo '<p>' . esc_html__('The vendor has not yet submitted their costs for this order, or the cost data is incomplete/malformed.', 'vss') . '</p>'; return; }
+        
+        // Debug mode for admins
+        if (current_user_can('manage_options') && isset($_GET['vss_debug'])) {
+            echo '<div style="background:#f0f0f0; padding:10px; margin-bottom:10px; font-size:12px;">';
+            echo '<strong>Debug Info:</strong><br>';
+            echo 'Raw meta value type: ' . gettype($costs_raw) . '<br>';
+            if (is_array($costs_raw)) {
+                echo 'Array keys: ' . implode(', ', array_keys($costs_raw)) . '<br>';
+                echo '<pre style="font-size:11px;">' . print_r($costs_raw, true) . '</pre>';
+            } else {
+                echo 'Raw value: ' . esc_html(print_r($costs_raw, true));
+            }
+            echo '</div>';
+        }
+        
+        if (empty($costs) || !isset($costs['total_cost']) || $costs['total_cost'] <= 0) { 
+            echo '<p>' . esc_html__('The vendor has not yet submitted their costs for this order.', 'vss') . '</p>'; 
+            if (current_user_can('manage_options')) {
+                echo '<p style="font-size:12px; color:#666;">' . esc_html__('Add ?vss_debug=1 to URL to see debug info.', 'vss') . '</p>';
+            }
+            return; 
+        }
         $order = wc_get_order($order_id); if (!$order) { echo '<p>' . esc_html__('Error: Could not retrieve order details.', 'vss') . '</p>'; return; }
         echo '<div class="vss-payout-details">'; $line_items_cost_total = 0;
         if (isset($costs['line_items']) && is_array($costs['line_items'])) { echo '<h4>' . esc_html__('Item Costs:', 'vss') . '</h4>'; foreach($order->get_items() as $item_id => $item) { if (!$item instanceof WC_Order_Item) continue; if (isset($costs['line_items'][$item_id]) && is_numeric($costs['line_items'][$item_id])) { $item_cost = floatval($costs['line_items'][$item_id]); $line_items_cost_total += $item_cost; echo '<div class="payout-line"><span>' . esc_html($item->get_name()) . ' &times; ' . $item->get_quantity() . '</span><strong>' . wc_price($item_cost) . '</strong></div>';}}}
