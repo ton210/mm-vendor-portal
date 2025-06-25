@@ -1,6 +1,6 @@
 <?php
 /**
- * VSS Emails Class
+ * VSS Emails Class - Fixed Version
  *
  * Handles all email notifications for the Vendor Order Manager plugin
  *
@@ -47,11 +47,62 @@ class VSS_Emails {
         // Email settings
         add_filter( 'woocommerce_email_settings', [ self::class, 'add_email_settings' ] );
         
-        // Email templates
-        add_filter( 'woocommerce_locate_template', [ self::class, 'locate_email_template' ], 10, 3 );
+        // REMOVED: Email templates filter that was causing the error
+        // add_filter( 'woocommerce_locate_template', [ self::class, 'locate_email_template' ], 10, 3 );
         
         // Test email
         add_action( 'wp_ajax_vss_send_test_email', [ self::class, 'ajax_send_test_email' ] );
+    }
+
+    /**
+     * Add locate_email_template method to prevent fatal error
+     * This method allows the plugin to override WooCommerce email templates if needed
+     *
+     * @param string $template
+     * @param string $template_name
+     * @param string $template_path
+     * @return string
+     */
+    public static function locate_email_template( $template, $template_name, $template_path ) {
+        // Only override email templates
+        if ( strpos( $template_name, 'emails/' ) !== 0 ) {
+            return $template;
+        }
+        
+        // Check if this is a VSS-specific email template
+        $vss_templates = [
+            'emails/vss-vendor-new-assignment.php',
+            'emails/vss-customer-approval-request.php',
+            'emails/vss-customer-production-confirmation.php',
+            'emails/vss-vendor-approval-confirmed.php',
+            'emails/vss-admin-approval-disapproved.php',
+            'emails/vss-vendor-disapproval-notification.php',
+        ];
+        
+        if ( ! in_array( $template_name, $vss_templates ) ) {
+            return $template;
+        }
+        
+        // Look for custom template in theme first
+        $custom_template = get_stylesheet_directory() . '/woocommerce/' . $template_name;
+        if ( file_exists( $custom_template ) ) {
+            return $custom_template;
+        }
+        
+        // Look in parent theme
+        $parent_template = get_template_directory() . '/woocommerce/' . $template_name;
+        if ( file_exists( $parent_template ) ) {
+            return $parent_template;
+        }
+        
+        // Look in plugin templates directory
+        $plugin_template = VSS_PLUGIN_PATH . 'templates/' . $template_name;
+        if ( file_exists( $plugin_template ) ) {
+            return $plugin_template;
+        }
+        
+        // Return original template
+        return $template;
     }
 
     /**
@@ -103,6 +154,58 @@ class VSS_Emails {
         }
 
         return $sent;
+    }
+
+    /**
+     * Add email settings to WooCommerce
+     *
+     * @param array $settings
+     * @return array
+     */
+    public static function add_email_settings( $settings ) {
+        $vss_settings = [
+            [
+                'title' => __( 'Vendor Order Manager Email Settings', 'vss' ),
+                'type' => 'title',
+                'desc' => __( 'Configure email settings for vendor notifications.', 'vss' ),
+                'id' => 'vss_email_options',
+            ],
+            [
+                'title' => __( 'Enable Email Logging', 'vss' ),
+                'desc' => __( 'Log all vendor-related emails for debugging.', 'vss' ),
+                'id' => 'vss_enable_email_log',
+                'type' => 'checkbox',
+                'default' => 'no',
+            ],
+            [
+                'title' => __( '"From" Name', 'vss' ),
+                'desc' => __( 'Name that vendor emails are sent from.', 'vss' ),
+                'id' => 'vss_email_from_name',
+                'type' => 'text',
+                'default' => get_bloginfo( 'name' ),
+            ],
+            [
+                'title' => __( '"From" Email', 'vss' ),
+                'desc' => __( 'Email address that vendor emails are sent from.', 'vss' ),
+                'id' => 'vss_email_from_address',
+                'type' => 'email',
+                'default' => get_option( 'admin_email' ),
+            ],
+            [
+                'type' => 'sectionend',
+                'id' => 'vss_email_options',
+            ],
+        ];
+
+        // Insert after WooCommerce email options
+        $insert_at = array_search( 'email_merchant_notes', array_column( $settings, 'id' ) );
+        if ( $insert_at !== false ) {
+            array_splice( $settings, $insert_at + 1, 0, $vss_settings );
+        } else {
+            $settings = array_merge( $settings, $vss_settings );
+        }
+
+        return $settings;
     }
 
     /**
