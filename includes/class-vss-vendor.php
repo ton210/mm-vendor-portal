@@ -1,17 +1,21 @@
 <?php
 /**
- * VSS Vendor Class - FIXED VERSION
+ * VSS Vendor Class - MERGED & FIXED VERSION
  *
- * Handles vendor portal functionality and vendor-specific features
- * Fixed: Vendor order access and added dedicated vendor orders page
+ * Handles vendor portal functionality and vendor-specific features.
+ * This version combines the original class with fixes for vendor order access,
+ * pagination, display, performance optimizations, and UI enhancements.
  *
  * @package VendorOrderManager
- * @since 7.0.0
+ * @since 7.0.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+// It's recommended to define this constant in your main plugin file.
+// Example: define( 'VSS_PLUGIN_FILE', __FILE__ );
 
 class VSS_Vendor {
 
@@ -28,23 +32,21 @@ class VSS_Vendor {
         add_action( 'template_redirect', [ self::class, 'handle_frontend_forms' ] );
         
         // Login redirect
-        add_filter( 'login_redirect', [ self::class, 'vendor_login_redirect' ], 9999, 3 );
+        add_filter( 'login_redirect', [ self::class, 'vendor_login_redirect' ], 10, 3 );
         
-        // Admin area restrictions - FIXED
+        // Admin area setup - FIXED
         add_action( 'admin_menu', [ self::class, 'setup_vendor_admin_menu' ], 999 );
         add_action( 'admin_init', [ self::class, 'restrict_admin_access' ] );
         
-        // Ensure vendors can access admin - CRITICAL FIX
-        add_filter( 'user_has_cap', [ self::class, 'vendor_admin_access' ], 10, 4 );
+        // Prevent vendor redirect to my-account
         add_action( 'init', [ self::class, 'prevent_vendor_redirect' ], 1 );
+        add_filter( 'woocommerce_prevent_admin_access', [ self::class, 'allow_vendor_admin_access' ], 10, 1 );
         
         // AJAX handlers
         add_action( 'wp_ajax_vss_manual_fetch_zip', [ self::class, 'ajax_manual_fetch_zakeke_zip' ] );
         add_action( 'wp_ajax_vss_save_draft', [ self::class, 'ajax_save_draft' ] );
         add_action( 'wp_ajax_vss_get_order_details', [ self::class, 'ajax_get_order_details' ] );
         add_action( 'wp_ajax_nopriv_vss_track_order', [ self::class, 'ajax_track_order' ] );
-        
-        // Debug AJAX handler for assigning orders
         add_action( 'wp_ajax_assign_order_to_vendor', [ self::class, 'ajax_assign_order_to_vendor' ] );
         
         // Vendor dashboard widgets
@@ -52,9 +54,6 @@ class VSS_Vendor {
         
         // Setup vendor roles and capabilities
         add_action( 'init', [ self::class, 'setup_vendor_capabilities' ] );
-        
-        // Admin notices for setup
-        add_action( 'admin_notices', [ self::class, 'vendor_setup_notices' ] );
         
         // Profile fields
         add_action( 'show_user_profile', [ self::class, 'add_vendor_profile_fields' ] );
@@ -64,103 +63,67 @@ class VSS_Vendor {
     }
 
     /**
-     * Prevent vendor redirect - CRITICAL FIX
+     * Allow vendor admin access by overriding WooCommerce's prevention.
+     */
+    public static function allow_vendor_admin_access( $prevent_access ) {
+        if ( self::is_current_user_vendor() ) {
+            return false;
+        }
+        return $prevent_access;
+    }
+
+    /**
+     * Prevent vendor redirect from admin area.
      */
     public static function prevent_vendor_redirect() {
-        // If we're in admin and user is vendor, prevent any redirects
         if ( is_admin() && self::is_current_user_vendor() ) {
-            // Remove any filters that might redirect vendors
-            remove_all_filters( 'wp_redirect' );
-            remove_all_actions( 'template_redirect' );
-            
-            // Add our own redirect handler
-            add_filter( 'wp_redirect', [ self::class, 'handle_vendor_redirects' ], 1, 2 );
+            // Remove WooCommerce's redirect
+            remove_action( 'admin_init', 'wc_prevent_admin_access' );
+            remove_action( 'admin_init', [ 'WC_Admin', 'prevent_admin_access' ] );
         }
     }
 
     /**
-     * Handle vendor redirects
-     */
-    public static function handle_vendor_redirects( $location, $status ) {
-        if ( ! self::is_current_user_vendor() ) {
-            return $location;
-        }
-
-        // If redirecting to my-account, redirect to vendor dashboard instead
-        if ( strpos( $location, '/my-account' ) !== false || strpos( $location, 'myaccount' ) !== false ) {
-            return admin_url( 'admin.php?page=vss-vendor-dashboard' );
-        }
-
-        // If trying to access vendor pages, allow it
-        if ( strpos( $location, 'page=vss-vendor-' ) !== false ) {
-            return $location;
-        }
-
-        // Allow admin URLs for vendors
-        if ( strpos( $location, '/wp-admin/' ) !== false ) {
-            return $location;
-        }
-
-        return $location;
-    }
-
-    /**
-     * Check if current user is vendor
+     * Check if current user is a vendor.
      *
      * @return bool
      */
-    // In file: ton210/mm-vendor-portal/mm-vendor-portal-46541f60b57da7a0fd4ff491885fe79981e63a04/includes/class-vss-vendor.php
+    private static function is_current_user_vendor() {
+        $user = wp_get_current_user();
+        return in_array( 'vendor-mm', (array) $user->roles, true ) || current_user_can( 'vendor-mm' );
+    }
 
-private static function is_current_user_vendor() {
-    $user = wp_get_current_user();
-
-    // Check multiple possible capability/role combinations
-    $is_vendor = in_array( 'vendor-mm', (array) $user->roles, true ) || current_user_can( 'vendor-mm' );
-
-    return $is_vendor;
-}
     /**
-     * Vendor login redirect
-     *
-     * @param string $redirect_to
-     * @param string $requested_redirect_to
-     * @param WP_User|WP_Error $user
-     * @return string
+     * Redirect vendors to their orders page upon login.
      */
     public static function vendor_login_redirect( $redirect_to, $requested_redirect_to, $user ) {
         if ( $user && ! is_wp_error( $user ) && in_array( 'vendor-mm', (array) $user->roles, true ) ) {
-            $vendor_portal_page = get_option( 'vss_vendor_portal_page_id' );
-            if ( $vendor_portal_page ) {
-                return get_permalink( $vendor_portal_page );
-            }
-            return home_url( '/vendor-portal/' );
+            return admin_url( 'admin.php?page=vss-vendor-orders' );
         }
         return $redirect_to;
     }
 
     /**
-     * Setup vendor admin menu - FIXED VERSION
+     * Setup a clean admin menu for vendors.
      */
     public static function setup_vendor_admin_menu() {
         if ( ! self::is_current_user_vendor() ) {
             return;
         }
 
-        // Remove default WooCommerce menu
-        remove_menu_page( 'woocommerce' );
-        remove_menu_page( 'edit.php?post_type=shop_order' );
-        
-        // Remove other unnecessary menus
+        // Remove unnecessary menus for vendors
         $restricted_menus = [
-            'edit.php', // Posts
-            'upload.php', // Media (we'll add back selectively)
+            'index.php', // We'll add custom dashboard
+            'edit.php',
             'edit-comments.php',
             'themes.php',
             'plugins.php',
             'users.php',
             'tools.php',
             'options-general.php',
+            'woocommerce',
             'woocommerce-marketing',
+            'edit.php?post_type=shop_order',
         ];
 
         foreach ( $restricted_menus as $menu ) {
@@ -169,23 +132,22 @@ private static function is_current_user_vendor() {
 
         // Add vendor-specific menus
         add_menu_page(
-            __( 'Vendor Dashboard', 'vss' ),
-            __( 'Dashboard', 'vss' ),
-            'vendor-mm',
-            'vss-vendor-dashboard',
-            [ self::class, 'render_admin_vendor_dashboard' ],
-            'dashicons-dashboard',
-            2
-        );
-
-        // Add vendor orders page
-        add_menu_page(
             __( 'My Orders', 'vss' ),
             __( 'My Orders', 'vss' ),
             'vendor-mm',
             'vss-vendor-orders',
             [ self::class, 'render_vendor_orders_page' ],
             'dashicons-cart',
+            2
+        );
+
+        add_menu_page(
+            __( 'Dashboard', 'vss' ),
+            __( 'Dashboard', 'vss' ),
+            'vendor-mm',
+            'vss-vendor-dashboard',
+            [ self::class, 'render_admin_vendor_dashboard' ],
+            'dashicons-dashboard',
             3
         );
 
@@ -202,123 +164,66 @@ private static function is_current_user_vendor() {
     }
 
     /**
-     * Render vendor orders page - FULL VERSION
+     * Render vendor orders page with pagination and filters.
      */
     public static function render_vendor_orders_page() {
-        $current_user = wp_get_current_user();
         $vendor_id = get_current_user_id();
+        
+        // Get filter parameters
+        $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : 'all';
+        $search = isset( $_GET['s'] ) ? sanitize_text_field( $_GET['s'] ) : '';
+        $per_page = 100;
+        $paged = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
         
         // Handle bulk actions
         if ( isset( $_POST['bulk_action'] ) && isset( $_POST['order_ids'] ) && check_admin_referer( 'vss_bulk_orders' ) ) {
-            $action = sanitize_key( $_POST['bulk_action'] );
-            $order_ids = array_map( 'intval', $_POST['order_ids'] );
-            
-            if ( $action === 'mark_shipped' ) {
-                $updated = 0;
-                foreach ( $order_ids as $order_id ) {
-                    $order = wc_get_order( $order_id );
-                    if ( $order && get_post_meta( $order_id, '_vss_vendor_user_id', true ) == $vendor_id ) {
-                        $order->update_status( 'shipped', __( 'Bulk marked as shipped by vendor.', 'vss' ) );
-                        update_post_meta( $order_id, '_vss_shipped_at', time() );
-                        $updated++;
-                    }
-                }
-                echo '<div class="notice notice-success"><p>' . sprintf( __( '%d orders marked as shipped.', 'vss' ), $updated ) . '</p></div>';
-            }
+            self::handle_bulk_actions();
         }
         
-        // Get filter parameters - DEFAULT TO PROCESSING ORDERS
-        $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : 'processing';
-        $search = isset( $_GET['s'] ) ? sanitize_text_field( $_GET['s'] ) : '';
-        $per_page = 100; // Show 100 orders per page
-        $paged = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
-        
-        // Use direct SQL query for better performance and reliability
-        global $wpdb;
-        
-        // Base query to get order IDs for this vendor
-        $base_sql = "
-            SELECT DISTINCT p.ID as order_id, p.post_date, p.post_status
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_type = 'shop_order'
-            AND pm.meta_key = '_vss_vendor_user_id'
-            AND pm.meta_value = %d
-        ";
-        
-        $sql_params = [ $vendor_id ];
+        // Build query args
+        $args = [
+            'limit' => $per_page,
+            'offset' => ( $paged - 1 ) * $per_page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'meta_key' => '_vss_vendor_user_id',
+            'meta_value' => $vendor_id,
+            'paginate' => true,
+        ];
         
         // Add status filter
         if ( $status_filter !== 'all' ) {
-            $base_sql .= " AND p.post_status = %s";
-            $sql_params[] = 'wc-' . $status_filter;
+            $args['status'] = 'wc-' . $status_filter;
         }
         
-        // Add search filter
+        // Add search
         if ( ! empty( $search ) ) {
-            $base_sql .= " AND (p.ID LIKE %s OR p.post_excerpt LIKE %s)";
-            $search_term = '%' . $wpdb->esc_like( $search ) . '%';
-            $sql_params[] = $search_term;
-            $sql_params[] = $search_term;
+            $args['s'] = $search;
         }
         
-        // Get total count
-        $count_sql = "SELECT COUNT(DISTINCT p.ID) " . substr( $base_sql, strpos( $base_sql, 'FROM' ) );
-        $total_orders = $wpdb->get_var( $wpdb->prepare( $count_sql, $sql_params ) );
+        // Get orders with pagination
+        $results = wc_get_orders( $args );
+        $orders = $results->orders;
+        $total_orders = $results->total;
+        $total_pages = $results->max_num_pages;
         
-        // Add pagination and ordering
-        $base_sql .= " ORDER BY p.post_date DESC";
-        if ( $per_page > 0 ) {
-            $offset = ( $paged - 1 ) * $per_page;
-            $base_sql .= " LIMIT %d OFFSET %d";
-            $sql_params[] = $per_page;
-            $sql_params[] = $offset;
-        }
+        // Get status counts
+        $status_counts = self::get_vendor_order_status_counts( $vendor_id );
         
-        // Get order IDs
-        $order_results = $wpdb->get_results( $wpdb->prepare( $base_sql, $sql_params ) );
-        $order_ids = wp_list_pluck( $order_results, 'order_id' );
-        
-        // Convert to WC_Order objects
-        $orders = [];
-        foreach ( $order_ids as $order_id ) {
-            $order = wc_get_order( $order_id );
-            if ( $order ) {
-                $orders[] = $order;
+        // Sort orders to put processing orders at the top
+        usort( $orders, function( $a, $b ) {
+            $a_processing = $a->has_status( 'processing' ) ? 0 : 1;
+            $b_processing = $b->has_status( 'processing' ) ? 0 : 1;
+            
+            if ( $a_processing !== $b_processing ) {
+                return $a_processing - $b_processing;
             }
-        }
+            
+            // Then sort by date
+            return $b->get_date_created()->getTimestamp() - $a->get_date_created()->getTimestamp();
+        });
         
-        // Get status counts - use same approach for consistency
-        $status_counts = [];
-        
-        // All orders count
-        $all_count_sql = "
-            SELECT COUNT(DISTINCT p.ID)
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_type = 'shop_order'
-            AND pm.meta_key = '_vss_vendor_user_id'
-            AND pm.meta_value = %d
-        ";
-        $status_counts['all'] = $wpdb->get_var( $wpdb->prepare( $all_count_sql, $vendor_id ) );
-        
-        // Individual status counts
-        $status_labels = [
-            'pending' => __( 'Pending', 'vss' ),
-            'processing' => __( 'Processing', 'vss' ),
-            'shipped' => __( 'Shipped', 'vss' ),
-            'completed' => __( 'Completed', 'vss' ),
-        ];
-        
-        foreach ( array_keys( $status_labels ) as $status ) {
-            $status_count_sql = $all_count_sql . " AND p.post_status = %s";
-            $count = $wpdb->get_var( $wpdb->prepare( $status_count_sql, $vendor_id, 'wc-' . $status ) );
-            if ( $count > 0 ) {
-                $status_counts[ $status ] = $count;
-            }
-        }
         ?>
-        
         <div class="wrap">
             <h1 class="wp-heading-inline"><?php esc_html_e( 'My Orders', 'vss' ); ?></h1>
             <a href="<?php echo esc_url( home_url( '/vendor-portal/' ) ); ?>" class="page-title-action">
@@ -327,37 +232,33 @@ private static function is_current_user_vendor() {
             
             <hr class="wp-header-end">
             
-            <!-- Debug Info (remove in production) -->
-            <?php if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) : ?>
-            <div class="notice notice-info">
-                <p><strong>Debug Info:</strong></p>
-                <p>Vendor ID: <?php echo $vendor_id; ?></p>
-                <p>Total Orders Found: <?php echo $total_orders; ?></p>
-                <p>Current Status Filter: <?php echo $status_filter; ?></p>
-                <p>SQL Query: <code><?php echo esc_html( $wpdb->prepare( $base_sql, $sql_params ) ); ?></code></p>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Status Filter -->
+            <!-- Status Filter Tabs -->
             <ul class="subsubsub">
                 <li class="all">
-                    <a href="<?php echo esc_url( add_query_arg( 'status', 'all' ) ); ?>" 
+                    <a href="<?php echo esc_url( remove_query_arg( [ 'status', 'paged' ] ) ); ?>" 
                        class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>">
                         <?php esc_html_e( 'All', 'vss' ); ?> 
-                        <span class="count">(<?php echo $status_counts['all']; ?>)</span>
+                        <span class="count">(<?php echo number_format_i18n( $status_counts['all'] ); ?>)</span>
                     </a>
                 </li>
                 <?php
-                foreach ( $status_labels as $status => $label ) :
+                $statuses = [
+                    'processing' => __( 'Processing', 'vss' ),
+                    'shipped' => __( 'Shipped', 'vss' ),
+                    'completed' => __( 'Completed', 'vss' ),
+                    'pending' => __( 'Pending', 'vss' ),
+                ];
+                
+                foreach ( $statuses as $status => $label ) :
                     if ( isset( $status_counts[ $status ] ) && $status_counts[ $status ] > 0 ) :
                 ?>
-                    <li class="<?php echo esc_attr( $status ); ?>">
-                        | <a href="<?php echo esc_url( add_query_arg( 'status', $status ) ); ?>" 
-                             class="<?php echo $status_filter === $status ? 'current' : ''; ?>">
-                            <?php echo esc_html( $label ); ?> 
-                            <span class="count">(<?php echo $status_counts[ $status ]; ?>)</span>
-                        </a>
-                    </li>
+                        <li class="<?php echo esc_attr( $status ); ?>">
+                            | <a href="<?php echo esc_url( add_query_arg( [ 'status' => $status, 'paged' => 1 ] ) ); ?>" 
+                                 class="<?php echo $status_filter === $status ? 'current' : ''; ?>">
+                                <?php echo esc_html( $label ); ?> 
+                                <span class="count">(<?php echo number_format_i18n( $status_counts[ $status ] ); ?>)</span>
+                            </a>
+                        </li>
                 <?php 
                     endif;
                 endforeach; 
@@ -373,9 +274,9 @@ private static function is_current_user_vendor() {
                 <p class="search-box">
                     <input type="search" id="order-search-input" name="s" 
                            value="<?php echo esc_attr( $search ); ?>" 
-                           placeholder="<?php esc_attr_e( 'Search orders...', 'vss' ); ?>">
+                           placeholder="<?php esc_attr_e( 'Search by order number...', 'vss' ); ?>">
                     <input type="submit" id="search-submit" class="button" 
-                           value="<?php esc_attr_e( 'Search', 'vss' ); ?>">
+                           value="<?php esc_attr_e( 'Search Orders', 'vss' ); ?>">
                 </p>
             </form>
             
@@ -392,14 +293,10 @@ private static function is_current_user_vendor() {
                         <input type="submit" id="doaction" class="button action" value="<?php esc_attr_e( 'Apply', 'vss' ); ?>">
                     </div>
                     
-                    <?php
-                    // Pagination
-                    $total_pages = $per_page > 0 ? ceil( $total_orders / $per_page ) : 1;
-                    if ( $total_pages > 1 ) :
-                    ?>
+                    <?php if ( $total_pages > 1 ) : ?>
                     <div class="tablenav-pages">
                         <span class="displaying-num">
-                            <?php printf( _n( '%s item', '%s items', $total_orders, 'vss' ), number_format_i18n( $total_orders ) ); ?>
+                            <?php printf( _n( '%s order', '%s orders', $total_orders, 'vss' ), number_format_i18n( $total_orders ) ); ?>
                         </span>
                         <?php
                         echo paginate_links( [
@@ -409,7 +306,6 @@ private static function is_current_user_vendor() {
                             'next_text' => '&raquo;',
                             'total' => $total_pages,
                             'current' => $paged,
-                            'type' => 'plain',
                         ] );
                         ?>
                     </div>
@@ -417,94 +313,30 @@ private static function is_current_user_vendor() {
                 </div>
                 
                 <!-- Orders Table -->
-                <table class="wp-list-table widefat fixed striped orders">
+                <table class="wp-list-table widefat fixed striped orders vss-vendor-orders-table">
                     <thead>
                         <tr>
                             <td id="cb" class="manage-column column-cb check-column">
                                 <input id="cb-select-all-1" type="checkbox">
                             </td>
-                            <th scope="col" class="manage-column column-order"><?php esc_html_e( 'Order', 'vss' ); ?></th>
-                            <th scope="col" class="manage-column column-date"><?php esc_html_e( 'Date', 'vss' ); ?></th>
-                            <th scope="col" class="manage-column column-status"><?php esc_html_e( 'Status', 'vss' ); ?></th>
-                            <th scope="col" class="manage-column column-customer"><?php esc_html_e( 'Customer', 'vss' ); ?></th>
-                            <th scope="col" class="manage-column column-items"><?php esc_html_e( 'Items', 'vss' ); ?></th>
-                            <th scope="col" class="manage-column column-ship-date"><?php esc_html_e( 'Ship Date', 'vss' ); ?></th>
-                            <!-- REMOVED TOTAL COLUMN as requested -->
-                            <th scope="col" class="manage-column column-actions"><?php esc_html_e( 'Actions', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Order', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Date', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Status', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Customer', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Items', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Ship Date', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Actions', 'vss' ); ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if ( ! empty( $orders ) ) : ?>
                             <?php foreach ( $orders as $order ) : ?>
-                                <?php
-                                $order_id = $order->get_id();
-                                $ship_date = get_post_meta( $order_id, '_vss_estimated_ship_date', true );
-                                $is_late = false;
-                                
-                                if ( $ship_date && $order->has_status( 'processing' ) ) {
-                                    $is_late = strtotime( $ship_date ) < current_time( 'timestamp' );
-                                }
-                                
-                                $row_class = '';
-                                if ( $is_late ) {
-                                    $row_class = 'vss-late-order';
-                                }
-                                ?>
-                                <tr class="<?php echo esc_attr( $row_class ); ?>">
-                                    <th scope="row" class="check-column">
-                                        <input type="checkbox" name="order_ids[]" value="<?php echo esc_attr( $order_id ); ?>">
-                                    </th>
-                                    <td class="column-order">
-                                        <strong>
-                                            <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], home_url( '/vendor-portal/' ) ) ); ?>">
-                                                #<?php echo esc_html( $order->get_order_number() ); ?>
-                                            </a>
-                                        </strong>
-                                    </td>
-                                    <td class="column-date">
-                                        <?php echo esc_html( $order->get_date_created()->date_i18n( get_option( 'date_format' ) ) ); ?>
-                                    </td>
-                                    <td class="column-status">
-                                        <mark class="order-status status-<?php echo esc_attr( $order->get_status() ); ?>">
-                                            <span><?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?></span>
-                                        </mark>
-                                        <?php if ( $is_late ) : ?>
-                                            <br><span class="vss-late-indicator"><?php esc_html_e( 'LATE', 'vss' ); ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="column-customer">
-                                        <?php echo esc_html( $order->get_formatted_billing_full_name() ); ?>
-                                        <?php if ( $order->get_billing_email() ) : ?>
-                                            <br><small><?php echo esc_html( $order->get_billing_email() ); ?></small>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="column-items">
-                                        <?php echo count( $order->get_items() ); ?> 
-                                        <?php echo _n( 'item', 'items', count( $order->get_items() ), 'vss' ); ?>
-                                    </td>
-                                    <td class="column-ship-date">
-                                        <?php if ( $ship_date ) : ?>
-                                            <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $ship_date ) ) ); ?>
-                                        <?php else : ?>
-                                            <span style="color: #999;">—</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <!-- REMOVED TOTAL COLUMN as requested -->
-                                    <td class="column-actions">
-                                        <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], home_url( '/vendor-portal/' ) ) ); ?>" 
-                                           class="button button-small">
-                                            <?php esc_html_e( 'View', 'vss' ); ?>
-                                        </a>
-                                    </td>
-                                </tr>
+                                <?php self::render_order_row( $order ); ?>
                             <?php endforeach; ?>
                         <?php else : ?>
                             <tr>
-                                <td colspan="8"> <!-- Updated colspan since we removed total column -->
-                                    <?php esc_html_e( 'No orders found.', 'vss' ); ?>
-                                    <?php if ( $status_counts['all'] > 0 ) : ?>
-                                        <br><small><?php esc_html_e( 'Try adjusting your filters or search terms.', 'vss' ); ?></small>
-                                    <?php endif; ?>
+                                <td colspan="8">
+                                    <p><?php esc_html_e( 'No orders found.', 'vss' ); ?></p>
                                 </td>
                             </tr>
                         <?php endif; ?>
@@ -523,7 +355,6 @@ private static function is_current_user_vendor() {
                             'next_text' => '&raquo;',
                             'total' => $total_pages,
                             'current' => $paged,
-                            'type' => 'plain',
                         ] );
                         ?>
                     </div>
@@ -531,19 +362,42 @@ private static function is_current_user_vendor() {
                 <?php endif; ?>
             </form>
             
-            <!-- Show summary at bottom -->
-            <div class="vss-orders-summary">
-                <p>
-                    <strong><?php esc_html_e( 'Summary:', 'vss' ); ?></strong>
-                    <?php printf( esc_html__( 'Showing %d orders out of %d total orders for your vendor account.', 'vss' ), count( $orders ), $total_orders ); ?>
-                    <?php if ( $per_page > 0 && $total_orders > $per_page ) : ?>
-                        <?php printf( esc_html__( ' Displaying page %d of %d.', 'vss' ), $paged, $total_pages ); ?>
-                    <?php endif; ?>
-                </p>
-            </div>
-            
             <style>
-            .vss-late-order { background-color: #ffebee !important; }
+            /* Status-based row colors */
+            .vss-vendor-orders-table tbody tr.status-processing {
+                background-color: #fff8e5 !important;
+            }
+            .vss-vendor-orders-table tbody tr.status-shipped {
+                background-color: #e8f5e9 !important;
+            }
+            .vss-vendor-orders-table tbody tr.status-completed {
+                background-color: #e3f2fd !important;
+            }
+            .vss-vendor-orders-table tbody tr.status-pending {
+                background-color: #f5f5f5 !important;
+            }
+            .vss-vendor-orders-table tbody tr.status-late {
+                background-color: #ffebee !important;
+            }
+            
+            /* Override striped table styles */
+            .vss-vendor-orders-table.striped > tbody > tr.status-processing:nth-child(odd),
+            .vss-vendor-orders-table.striped > tbody > tr.status-processing:nth-child(even) {
+                background-color: #fff8e5 !important;
+            }
+            .vss-vendor-orders-table.striped > tbody > tr.status-shipped:nth-child(odd),
+            .vss-vendor-orders-table.striped > tbody > tr.status-shipped:nth-child(even) {
+                background-color: #e8f5e9 !important;
+            }
+            .vss-vendor-orders-table.striped > tbody > tr.status-completed:nth-child(odd),
+            .vss-vendor-orders-table.striped > tbody > tr.status-completed:nth-child(even) {
+                background-color: #e3f2fd !important;
+            }
+            .vss-vendor-orders-table.striped > tbody > tr.status-late:nth-child(odd),
+            .vss-vendor-orders-table.striped > tbody > tr.status-late:nth-child(even) {
+                background-color: #ffebee !important;
+            }
+            
             .vss-late-indicator { 
                 background: #d32f2f; 
                 color: white; 
@@ -551,16 +405,9 @@ private static function is_current_user_vendor() {
                 border-radius: 3px; 
                 font-size: 0.8em; 
                 font-weight: bold; 
+                display: inline-block;
+                margin-left: 5px;
             }
-            
-            /* Updated column widths since we removed total column */
-            .column-order { width: 12%; }
-            .column-date { width: 12%; }
-            .column-status { width: 15%; }
-            .column-customer { width: 25%; }
-            .column-items { width: 10%; }
-            .column-ship-date { width: 12%; }
-            .column-actions { width: 14%; }
             
             .search-form { 
                 float: right; 
@@ -573,16 +420,9 @@ private static function is_current_user_vendor() {
                 margin-right: 5px; 
             }
             
-            .vss-orders-summary {
-                margin-top: 20px;
-                padding: 15px;
-                background: #f9f9f9;
-                border-left: 4px solid #0073aa;
-            }
-            
-            .vss-orders-summary p {
-                margin: 0;
-                font-size: 14px;
+            /* Make sure processing orders stand out */
+            .vss-vendor-orders-table tbody tr.status-processing td {
+                font-weight: 500;
             }
             </style>
             
@@ -619,102 +459,178 @@ private static function is_current_user_vendor() {
         </div>
         <?php
     }
-
+    
     /**
-     * Ensure vendors can access admin area
+     * Render a single order row for the admin table.
      */
-    public static function vendor_admin_access( $user_caps, $caps, $args, $user ) {
-        // If user has vendor-mm role, grant access to admin
-        if ( isset( $user->roles ) && in_array( 'vendor-mm', $user->roles, true ) ) {
-            // Grant basic admin access capabilities
-            $user_caps['read'] = true;
-            $user_caps['upload_files'] = true;
-            $user_caps['edit_posts'] = false; // Prevent post editing
-            $user_caps['edit_others_posts'] = false;
-            $user_caps['edit_pages'] = false;
-            $user_caps['edit_others_pages'] = false;
-            
-            // Grant access to vendor pages
-            if ( in_array( 'vendor-mm', $caps, true ) ) {
-                $user_caps['vendor-mm'] = true;
-            }
-
-            // CRITICAL: Allow admin access
-            if ( in_array( 'read', $caps, true ) ) {
-                $user_caps['read'] = true;
-            }
+    private static function render_order_row( $order ) {
+        $order_id = $order->get_id();
+        $ship_date = get_post_meta( $order_id, '_vss_estimated_ship_date', true );
+        $is_late = false;
+        
+        if ( $ship_date && $order->has_status( 'processing' ) ) {
+            $is_late = strtotime( $ship_date ) < current_time( 'timestamp' );
         }
         
-        return $user_caps;
+        // Determine row class based on status
+        $row_classes = [];
+        if ( $is_late ) {
+            $row_classes[] = 'status-late';
+        } elseif ( $order->has_status( 'processing' ) ) {
+            $row_classes[] = 'status-processing';
+        } elseif ( $order->has_status( 'shipped' ) ) {
+            $row_classes[] = 'status-shipped';
+        } elseif ( $order->has_status( 'completed' ) ) {
+            $row_classes[] = 'status-completed';
+        } elseif ( $order->has_status( 'pending' ) ) {
+            $row_classes[] = 'status-pending';
+        }
+        
+        $row_class = implode( ' ', $row_classes );
+        ?>
+        <tr class="<?php echo esc_attr( $row_class ); ?>">
+            <th scope="row" class="check-column">
+                <input type="checkbox" name="order_ids[]" value="<?php echo esc_attr( $order_id ); ?>">
+            </th>
+            <td>
+                <strong>
+                    <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], home_url( '/vendor-portal/' ) ) ); ?>">
+                        #<?php echo esc_html( $order->get_order_number() ); ?>
+                    </a>
+                </strong>
+            </td>
+            <td>
+                <?php echo esc_html( $order->get_date_created()->date_i18n( get_option( 'date_format' ) ) ); ?>
+                <br>
+                <small><?php echo esc_html( $order->get_date_created()->date_i18n( get_option( 'time_format' ) ) ); ?></small>
+            </td>
+            <td>
+                <mark class="order-status status-<?php echo esc_attr( $order->get_status() ); ?>">
+                    <span><?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?></span>
+                </mark>
+                <?php if ( $is_late ) : ?>
+                    <span class="vss-late-indicator"><?php esc_html_e( 'LATE', 'vss' ); ?></span>
+                <?php endif; ?>
+            </td>
+            <td>
+                <?php echo esc_html( $order->get_formatted_billing_full_name() ); ?>
+                <?php if ( $order->get_billing_email() ) : ?>
+                    <br><small><?php echo esc_html( $order->get_billing_email() ); ?></small>
+                <?php endif; ?>
+            </td>
+            <td>
+                <?php 
+                $item_count = $order->get_item_count();
+                echo sprintf( _n( '%d item', '%d items', $item_count, 'vss' ), $item_count );
+                ?>
+            </td>
+            <td>
+                <?php if ( $ship_date ) : ?>
+                    <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $ship_date ) ) ); ?>
+                <?php else : ?>
+                    <span style="color: #999;">—</span>
+                <?php endif; ?>
+            </td>
+            <td>
+                <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], home_url( '/vendor-portal/' ) ) ); ?>" 
+                   class="button button-small">
+                    <?php esc_html_e( 'View', 'vss' ); ?>
+                </a>
+            </td>
+        </tr>
+        <?php
     }
 
     /**
-     * Restrict admin access for vendors - FIXED
+     * Get and cache vendor order status counts.
+     */
+    private static function get_vendor_order_status_counts( $vendor_id ) {
+        $counts = [
+            'all' => 0,
+            'pending' => 0,
+            'processing' => 0,
+            'shipped' => 0,
+            'completed' => 0,
+        ];
+        
+        // Get all count
+        $all_args = [
+            'meta_key' => '_vss_vendor_user_id',
+            'meta_value' => $vendor_id,
+            'return' => 'ids',
+            'limit' => -1,
+        ];
+        $counts['all'] = count( wc_get_orders( $all_args ) );
+        
+        // Get individual status counts
+        foreach ( [ 'pending', 'processing', 'shipped', 'completed' ] as $status ) {
+            $args = $all_args;
+            $args['status'] = 'wc-' . $status;
+            $counts[ $status ] = count( wc_get_orders( $args ) );
+        }
+        
+        return $counts;
+    }
+
+    /**
+     * Handle bulk actions submission from the orders page.
+     */
+    private static function handle_bulk_actions() {
+        $action = sanitize_key( $_POST['bulk_action'] );
+        $order_ids = array_map( 'intval', $_POST['order_ids'] );
+        $vendor_id = get_current_user_id();
+        
+        if ( $action === 'mark_shipped' ) {
+            $updated = 0;
+            foreach ( $order_ids as $order_id ) {
+                $order = wc_get_order( $order_id );
+                if ( $order && get_post_meta( $order_id, '_vss_vendor_user_id', true ) == $vendor_id ) {
+                    $order->update_status( 'shipped', __( 'Bulk marked as shipped by vendor.', 'vss' ) );
+                    update_post_meta( $order_id, '_vss_shipped_at', time() );
+                    $updated++;
+                }
+            }
+            echo '<div class="notice notice-success"><p>' . sprintf( __( '%d orders marked as shipped.', 'vss' ), $updated ) . '</p></div>';
+        }
+    }
+
+    /**
+     * Restrict admin access for vendors to allowed pages.
      */
     public static function restrict_admin_access() {
-        // Only run this for vendor users
         if ( ! self::is_current_user_vendor() ) {
             return;
         }
 
-        // Don't restrict on AJAX calls
         if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
             return;
         }
 
         global $pagenow;
         
-        // Debug current page
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'VSS Debug: Current page: ' . $pagenow );
-            error_log( 'VSS Debug: GET params: ' . print_r( $_GET, true ) );
-        }
-        
         // Allowed pages for vendors
         $allowed_pages = [
-            'index.php',           // Dashboard
-            'profile.php',         // Profile
-            'upload.php',          // Media library
-            'media-new.php',       // Upload new media
-            'admin-ajax.php',      // AJAX requests
-            'admin.php',           // Custom admin pages
+            'admin.php',
+            'upload.php',
+            'media-new.php',
+            'admin-ajax.php',
+            'profile.php',
         ];
 
         // Always allow our custom vendor pages
         if ( isset( $_GET['page'] ) && strpos( $_GET['page'], 'vss-vendor-' ) === 0 ) {
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'VSS Debug: Allowing vendor page: ' . $_GET['page'] );
-            }
             return;
-        }
-
-        // Allow admin.php if it's for vendor pages
-        if ( $pagenow === 'admin.php' && isset( $_GET['page'] ) ) {
-            $allowed_admin_pages = [
-                'vss-vendor-dashboard',
-                'vss-vendor-orders',
-            ];
-            
-            if ( in_array( $_GET['page'], $allowed_admin_pages, true ) ) {
-                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( 'VSS Debug: Allowing vendor admin page: ' . $_GET['page'] );
-                }
-                return;
-            }
         }
 
         // Check if on disallowed page
         if ( ! in_array( $pagenow, $allowed_pages, true ) ) {
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'VSS Debug: Redirecting from disallowed page: ' . $pagenow );
-            }
-            wp_redirect( admin_url( 'admin.php?page=vss-vendor-dashboard' ) );
+            wp_redirect( admin_url( 'admin.php?page=vss-vendor-orders' ) );
             exit;
         }
     }
 
     /**
-     * Setup vendor capabilities
+     * Setup vendor capabilities and role.
      */
     public static function setup_vendor_capabilities() {
         $role = get_role( 'vendor-mm' );
@@ -725,26 +641,177 @@ private static function is_current_user_vendor() {
                 'vendor-mm' => true,
                 'manage_vendor_orders' => true,
             ] );
+        } else {
+            // Ensure role has necessary capabilities
+            $role->add_cap( 'read' );
+            $role->add_cap( 'upload_files' );
+            $role->add_cap( 'vendor-mm' );
+            $role->add_cap( 'manage_vendor_orders' );
         }
     }
 
     /**
-     * Vendor setup notices
+     * Add custom widgets to the vendor dashboard.
      */
-    public static function vendor_setup_notices() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+    public static function add_vendor_dashboard_widgets() {
+        if ( ! self::is_current_user_vendor() ) {
             return;
         }
 
-        $role = get_role( 'vendor-mm' );
-        if ( ! $role ) {
-            ?>
-            <div class="notice notice-warning">
-                <p><?php esc_html_e( 'Vendor MM role not found. Please run setup to create vendor role.', 'vss' ); ?></p>
-            </div>
-            <?php
-        }
+        // Remove default widgets
+        global $wp_meta_boxes;
+        $wp_meta_boxes['dashboard']['normal']['core'] = [];
+        $wp_meta_boxes['dashboard']['side']['core'] = [];
+
+        // Add vendor widgets
+        wp_add_dashboard_widget(
+            'vss_vendor_stats',
+            __( 'Your Stats', 'vss' ),
+            [ self::class, 'render_dashboard_stats_widget' ]
+        );
+
+        wp_add_dashboard_widget(
+            'vss_vendor_recent',
+            __( 'Recent Orders', 'vss' ),
+            [ self::class, 'render_dashboard_recent_orders_widget' ]
+        );
+        
+        wp_add_dashboard_widget(
+            'vss_vendor_pending_tasks_widget',
+            __( 'Pending Tasks', 'vss' ),
+            [ self::class, 'render_dashboard_pending_tasks_widget' ]
+        );
     }
+
+    /**
+     * Render the dashboard statistics widget.
+     */
+    public static function render_dashboard_stats_widget() {
+        $vendor_id = get_current_user_id();
+        $stats = self::get_vendor_statistics( $vendor_id );
+        ?>
+        <ul>
+            <li><?php printf( __( 'Processing: <strong>%d</strong>', 'vss' ), $stats['processing'] ); ?></li>
+            <li><?php printf( __( 'Shipped This Month: <strong>%d</strong>', 'vss' ), $stats['shipped_this_month'] ); ?></li>
+            <li><?php printf( __( 'Earnings This Month: <strong>%s</strong>', 'vss' ), wc_price( $stats['earnings_this_month'] ) ); ?></li>
+            <?php if ( $stats['late'] > 0 ) : ?>
+                <li style="color: #d32f2f;"><?php printf( __( 'Late Orders: <strong>%d</strong>', 'vss' ), $stats['late'] ); ?></li>
+            <?php endif; ?>
+        </ul>
+        <p><a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>" class="button button-primary"><?php esc_html_e( 'View All Orders', 'vss' ); ?></a></p>
+        <?php
+    }
+
+    /**
+     * Render the dashboard recent orders widget.
+     */
+    public static function render_dashboard_recent_orders_widget() {
+        $vendor_id = get_current_user_id();
+        $orders = wc_get_orders( [
+            'meta_key' => '_vss_vendor_user_id',
+            'meta_value' => $vendor_id,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'limit' => 5,
+        ] );
+
+        if ( empty( $orders ) ) {
+            echo '<p>' . esc_html__( 'No recent orders.', 'vss' ) . '</p>';
+            return;
+        }
+        ?>
+        <ul>
+            <?php foreach ( $orders as $order ) : ?>
+                <li>
+                    <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order->get_id() ], home_url( '/vendor-portal/' ) ) ); ?>">
+                        #<?php echo esc_html( $order->get_order_number() ); ?>
+                    </a>
+                    - <?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?>
+                    <span style="float: right;"><?php echo esc_html( $order->get_date_created()->date_i18n( 'M j' ) ); ?></span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php
+    }
+
+    /**
+     * Get vendor statistics.
+     *
+     * @param int $vendor_id
+     * @return array
+     */
+    private static function get_vendor_statistics( $vendor_id ) {
+        $stats = [
+            'processing' => 0,
+            'late' => 0,
+            'shipped_this_month' => 0,
+            'earnings_this_month' => 0,
+        ];
+
+        // Processing orders
+        $processing_orders = wc_get_orders( [
+            'status' => 'processing',
+            'meta_key' => '_vss_vendor_user_id',
+            'meta_value' => $vendor_id,
+            'return' => 'ids',
+            'limit' => -1,
+        ] );
+        $stats['processing'] = count( $processing_orders );
+
+        // Late orders
+        foreach ( $processing_orders as $order_id ) {
+            $ship_date = get_post_meta( $order_id, '_vss_estimated_ship_date', true );
+            if ( $ship_date && strtotime( $ship_date ) < current_time( 'timestamp' ) ) {
+                $stats['late']++;
+            }
+        }
+
+        // Shipped this month
+        $month_start = date( 'Y-m-01 00:00:00' );
+        $shipped_orders = wc_get_orders( [
+            'status' => 'shipped',
+            'meta_key' => '_vss_vendor_user_id',
+            'meta_value' => $vendor_id,
+            'date_modified' => '>=' . $month_start,
+            'return' => 'objects',
+            'limit' => -1,
+        ] );
+        $stats['shipped_this_month'] = count( $shipped_orders );
+        
+        // Earnings this month
+        foreach ( $shipped_orders as $order ) {
+            $costs = get_post_meta( $order->get_id(), '_vss_order_costs', true );
+            if ( isset( $costs['total_cost'] ) ) {
+                $stats['earnings_this_month'] += floatval( $costs['total_cost'] );
+            }
+        }
+
+        return apply_filters( 'vss_vendor_statistics', $stats, $vendor_id );
+    }
+
+    /**
+     * Render the main admin vendor dashboard page.
+     */
+    public static function render_admin_vendor_dashboard() {
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'Vendor Dashboard', 'vss' ); ?></h1>
+            <p><?php esc_html_e( 'Welcome to your vendor dashboard.', 'vss' ); ?></p>
+            <div style="margin-top: 20px;">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>" class="button button-primary button-hero">
+                    <?php esc_html_e( 'View My Orders', 'vss' ); ?>
+                </a>
+                <a href="<?php echo esc_url( home_url( '/vendor-portal/' ) ); ?>" class="button button-secondary button-hero">
+                    <?php esc_html_e( 'Go to Frontend Portal', 'vss' ); ?>
+                </a>
+            </div>
+        </div>
+        <?php
+    }
+    
+    // =========================================================================
+    // METHODS COPIED FROM ORIGINAL FILE FOR FRONTEND PORTAL & OTHER FEATURES
+    // =========================================================================
 
     /**
      * Render vendor portal shortcode
@@ -916,108 +983,7 @@ private static function is_current_user_vendor() {
         <?php
         return ob_get_clean();
     }
-
-    /**
-     * Add vendor dashboard widgets
-     */
-    public static function add_vendor_dashboard_widgets() {
-        if ( ! self::is_current_user_vendor() ) {
-            return;
-        }
-
-        // Remove default widgets for vendors
-        remove_meta_box( 'dashboard_incoming_links', 'dashboard', 'normal' );
-        remove_meta_box( 'dashboard_plugins', 'dashboard', 'normal' );
-        remove_meta_box( 'dashboard_primary', 'dashboard', 'side' );
-        remove_meta_box( 'dashboard_secondary', 'dashboard', 'normal' );
-        remove_meta_box( 'dashboard_quick_press', 'dashboard', 'side' );
-        remove_meta_box( 'dashboard_recent_drafts', 'dashboard', 'side' );
-        remove_meta_box( 'dashboard_recent_comments', 'dashboard', 'normal' );
-        remove_meta_box( 'dashboard_site_health', 'dashboard', 'normal' );
-        remove_meta_box( 'dashboard_activity', 'dashboard', 'normal' );
-
-        // Add vendor-specific widgets
-        wp_add_dashboard_widget(
-            'vss_vendor_stats_widget',
-            __( 'Your Performance', 'vss' ),
-            [ self::class, 'render_dashboard_stats_widget' ]
-        );
-
-        wp_add_dashboard_widget(
-            'vss_vendor_recent_orders_widget',
-            __( 'Recent Orders', 'vss' ),
-            [ self::class, 'render_dashboard_recent_orders_widget' ]
-        );
-
-        wp_add_dashboard_widget(
-            'vss_vendor_pending_tasks_widget',
-            __( 'Pending Tasks', 'vss' ),
-            [ self::class, 'render_dashboard_pending_tasks_widget' ]
-        );
-    }
-
-    /**
-     * Render dashboard stats widget
-     */
-    public static function render_dashboard_stats_widget() {
-        $vendor_id = get_current_user_id();
-        $stats = self::get_vendor_statistics( $vendor_id );
-        ?>
-        <div class="vss-dashboard-stats">
-            <ul>
-                <li><?php printf( __( 'Orders in Processing: <strong>%d</strong>', 'vss' ), $stats['processing'] ); ?></li>
-                <li><?php printf( __( 'Shipped This Month: <strong>%d</strong>', 'vss' ), $stats['shipped_this_month'] ); ?></li>
-                <li><?php printf( __( 'Earnings This Month: <strong>%s</strong>', 'vss' ), wc_price( $stats['earnings_this_month'] ) ); ?></li>
-                <?php if ( $stats['late'] > 0 ) : ?>
-                    <li class="critical"><?php printf( __( 'Late Orders: <strong>%d</strong>', 'vss' ), $stats['late'] ); ?></li>
-                <?php endif; ?>
-            </ul>
-            <p class="vss-dashboard-link">
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>" class="button">
-                    <?php esc_html_e( 'View All Orders', 'vss' ); ?>
-                </a>
-            </p>
-        </div>
-        <?php
-    }
-
-    /**
-     * Render dashboard recent orders widget
-     */
-    public static function render_dashboard_recent_orders_widget() {
-        $vendor_id = get_current_user_id();
-        $orders = wc_get_orders( [
-            'meta_key' => '_vss_vendor_user_id',
-            'meta_value' => $vendor_id,
-            'orderby' => 'date',
-            'order' => 'DESC',
-            'limit' => 5,
-        ] );
-
-        if ( empty( $orders ) ) {
-            echo '<p>' . esc_html__( 'No recent orders.', 'vss' ) . '</p>';
-            return;
-        }
-        ?>
-        <ul class="vss-recent-orders-list">
-            <?php foreach ( $orders as $order ) : ?>
-                <li>
-                    <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order->get_id() ], home_url( '/vendor-portal/' ) ) ); ?>">
-                        #<?php echo esc_html( $order->get_order_number() ); ?>
-                    </a>
-                    - <?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?>
-                    <span class="order-date"><?php echo esc_html( $order->get_date_created()->date_i18n( 'M j' ) ); ?></span>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-        <p class="vss-dashboard-link">
-            <a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>">
-                <?php esc_html_e( 'View all orders →', 'vss' ); ?>
-            </a>
-        </p>
-        <?php
-    }
-
+    
     /**
      * Render dashboard pending tasks widget
      */
@@ -1217,61 +1183,6 @@ private static function is_current_user_vendor() {
     }
 
     /**
-     * Get vendor statistics
-     *
-     * @param int $vendor_id
-     * @return array
-     */
-    private static function get_vendor_statistics( $vendor_id ) {
-        $stats = [
-            'processing' => 0,
-            'late' => 0,
-            'shipped_this_month' => 0,
-            'earnings_this_month' => 0,
-        ];
-
-        // Processing orders
-        $processing_orders = wc_get_orders( [
-            'status' => 'processing',
-            'meta_key' => '_vss_vendor_user_id',
-            'meta_value' => $vendor_id,
-            'return' => 'ids',
-            'limit' => -1,
-        ] );
-        $stats['processing'] = count( $processing_orders );
-
-        // Late orders
-        foreach ( $processing_orders as $order_id ) {
-            $ship_date = get_post_meta( $order_id, '_vss_estimated_ship_date', true );
-            if ( $ship_date && strtotime( $ship_date ) < current_time( 'timestamp' ) ) {
-                $stats['late']++;
-            }
-        }
-
-        // Shipped this month
-        $month_start = date( 'Y-m-01 00:00:00' );
-        $shipped_orders = wc_get_orders( [
-            'status' => 'shipped',
-            'meta_key' => '_vss_vendor_user_id',
-            'meta_value' => $vendor_id,
-            'date_modified' => '>=' . $month_start,
-            'return' => 'objects',
-            'limit' => -1,
-        ] );
-        $stats['shipped_this_month'] = count( $shipped_orders );
-
-        // Earnings this month
-        foreach ( $shipped_orders as $order ) {
-            $costs = get_post_meta( $order->get_id(), '_vss_order_costs', true );
-            if ( isset( $costs['total_cost'] ) ) {
-                $stats['earnings_this_month'] += floatval( $costs['total_cost'] );
-            }
-        }
-
-        return apply_filters( 'vss_vendor_statistics', $stats, $vendor_id );
-    }
-
-    /**
      * Render quick actions
      */
     private static function render_quick_actions() {
@@ -1324,7 +1235,7 @@ private static function is_current_user_vendor() {
                     </thead>
                     <tbody>
                         <?php foreach ( $orders as $order ) : ?>
-                            <?php self::render_order_row( $order ); ?>
+                            <?php self::render_frontend_order_row( $order ); ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -1341,11 +1252,11 @@ private static function is_current_user_vendor() {
     }
 
     /**
-     * Render order row
+     * Render frontend order row
      *
      * @param WC_Order $order
      */
-    private static function render_order_row( $order ) {
+    private static function render_frontend_order_row( $order ) {
         $order_id = $order->get_id();
         $ship_date = get_post_meta( $order_id, '_vss_estimated_ship_date', true );
         $is_late = false;
@@ -1447,26 +1358,6 @@ private static function is_current_user_vendor() {
                     </li>
                 <?php endforeach; ?>
             </ul>
-        </div>
-        <?php
-    }
-
-    /**
-     * Render admin vendor dashboard
-     */
-    public static function render_admin_vendor_dashboard() {
-        ?>
-        <div class="wrap">
-            <h1><?php esc_html_e( 'Vendor Dashboard', 'vss' ); ?></h1>
-            <p><?php esc_html_e( 'Welcome to your vendor dashboard. Use the menu to manage your orders.', 'vss' ); ?></p>
-            <div class="vss-dashboard-actions">
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>" class="button button-primary button-hero">
-                    <?php esc_html_e( 'View My Orders', 'vss' ); ?>
-                </a>
-                <a href="<?php echo esc_url( home_url( '/vendor-portal/' ) ); ?>" class="button button-secondary button-hero">
-                    <?php esc_html_e( 'Go to Vendor Portal', 'vss' ); ?>
-                </a>
-            </div>
         </div>
         <?php
     }
@@ -2334,7 +2225,7 @@ private static function is_current_user_vendor() {
                 $('.cost-item input[type="number"]').each(function() {
                     total += parseFloat($(this).val()) || 0;
                 });
-                $('#total_display').text(' + total.toFixed(2));
+                $('#total_display').text('<?php echo get_woocommerce_currency_symbol(); ?>' + total.toFixed(2));
             }
             
             $('.cost-item input[type="number"]').on('input', updateTotal);
@@ -2600,3 +2491,265 @@ private static function is_current_user_vendor() {
     }
 
 } // End class VSS_Vendor
+
+
+// =========================================================================
+// HELPER FUNCTIONS & HOOKS (from additions)
+// =========================================================================
+
+/**
+ * Add filter to optimize vendor order queries
+ */
+add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', 'vss_optimize_vendor_order_query', 10, 2 );
+function vss_optimize_vendor_order_query( $query, $query_vars ) {
+    // Only optimize if searching for vendor orders
+    if ( isset( $query_vars['meta_key'] ) && $query_vars['meta_key'] === '_vss_vendor_user_id' ) {
+        // Force index usage for better performance
+        add_filter( 'posts_clauses', 'vss_force_meta_index', 10, 2 );
+    }
+    return $query;
+}
+
+/**
+ * Force the query to use a specific index on the postmeta table.
+ */
+function vss_force_meta_index( $clauses, $wp_query ) {
+    global $wpdb;
+    
+    // Add index hint for meta queries
+    $clauses['join'] = str_replace( 
+        "INNER JOIN {$wpdb->postmeta}", 
+        "INNER JOIN {$wpdb->postmeta} USE INDEX (meta_key)", 
+        $clauses['join'] 
+    );
+    
+    // Remove this filter after use to avoid affecting other queries
+    remove_filter( 'posts_clauses', 'vss_force_meta_index', 10, 2 );
+    
+    return $clauses;
+}
+
+/**
+ * Add custom CSS for the vendor orders page for better UI/UX.
+ */
+add_action( 'admin_head', 'vss_vendor_orders_custom_css' );
+function vss_vendor_orders_custom_css() {
+    if ( isset( $_GET['page'] ) && $_GET['page'] === 'vss-vendor-orders' ) {
+        ?>
+        <style>
+            /* Enhanced order status styles */
+            .vss-vendor-orders-table .order-status {
+                display: inline-block;
+                line-height: 2.5em;
+                color: #777;
+                background: #e5e5e5;
+                border-radius: 4px;
+                border-bottom: 1px solid rgba(0,0,0,0.05);
+                margin: -0.25em 0;
+                cursor: inherit !important;
+                font-weight: 500;
+                padding: 0 1em;
+            }
+            
+            .vss-vendor-orders-table .order-status.status-processing {
+                background: #f8dda7;
+                color: #94660c;
+            }
+            
+            .vss-vendor-orders-table .order-status.status-shipped {
+                background: #c8e6c9;
+                color: #2e7d32;
+            }
+            
+            .vss-vendor-orders-table .order-status.status-completed {
+                background: #d4edda;
+                color: #155724;
+            }
+            
+            .vss-vendor-orders-table .order-status.status-pending {
+                background: #ccc;
+                color: #666;
+            }
+            
+            /* Hover effects */
+            .vss-vendor-orders-table tbody tr:hover {
+                transform: scale(1.01);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: all 0.2s ease-in-out;
+            }
+            
+            /* Make processing orders stand out more */
+            .vss-vendor-orders-table tbody tr.status-processing {
+                position: relative;
+            }
+            
+            .vss-vendor-orders-table tbody tr.status-processing::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 4px;
+                background: #ff9800;
+            }
+            
+            /* Late orders alert */
+            .vss-vendor-orders-table tbody tr.status-late {
+                position: relative;
+            }
+            
+            .vss-vendor-orders-table tbody tr.status-late::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 4px;
+                background: #f44336;
+            }
+            
+            /* Better search box */
+            .search-box input[type="search"] {
+                padding: 8px 12px;
+                font-size: 14px;
+                border: 2px solid #ddd;
+                border-radius: 4px;
+                transition: all 0.3s;
+            }
+            
+            .search-box input[type="search"]:focus {
+                border-color: #2271b1;
+                box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+            }
+            
+            /* Status filter enhancement */
+            .subsubsub li a {
+                padding: 5px 10px;
+                border-radius: 3px;
+                transition: all 0.2s;
+            }
+            
+            .subsubsub li a:hover {
+                background: #f0f0f0;
+            }
+            
+            .subsubsub li a.current {
+                background: #2271b1;
+                color: white;
+                font-weight: 600;
+            }
+            
+            /* Pagination improvements */
+            .tablenav-pages a, .tablenav-pages span.current {
+                display: inline-block;
+                padding: 4px 12px;
+                margin: 0 2px;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                text-decoration: none;
+                transition: all 0.2s;
+            }
+            
+            .tablenav-pages a:hover {
+                background: #2271b1;
+                color: white;
+                border-color: #2271b1;
+            }
+            
+            .tablenav-pages span.current {
+                background: #555;
+                color: white;
+                border-color: #555;
+            }
+        </style>
+        <?php
+    }
+}
+
+/**
+ * Add keyboard shortcuts and auto-refresh functionality to the vendor orders page.
+ */
+add_action( 'admin_footer', 'vss_vendor_orders_keyboard_shortcuts' );
+function vss_vendor_orders_keyboard_shortcuts() {
+    if ( isset( $_GET['page'] ) && $_GET['page'] === 'vss-vendor-orders' ) {
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            // Keyboard shortcuts
+            $(document).on('keydown', function(e) {
+                // Alt + N = Next page
+                if (e.altKey && e.keyCode === 78) {
+                    e.preventDefault();
+                    $('.next-page:not(.disabled)').click();
+                }
+                
+                // Alt + P = Previous page
+                if (e.altKey && e.keyCode === 80) {
+                    e.preventDefault();
+                    $('.prev-page:not(.disabled)').click();
+                }
+                
+                // Alt + S = Focus search
+                if (e.altKey && e.keyCode === 83) {
+                    e.preventDefault();
+                    $('#order-search-input').focus();
+                }
+                
+                // Alt + A = Select all
+                if (e.altKey && e.keyCode === 65) {
+                    e.preventDefault();
+                    $('#cb-select-all-1').click();
+                }
+            });
+            
+            // Add tooltips
+            $('.next-page').attr('title', 'Next Page (Alt+N)');
+            $('.prev-page').attr('title', 'Previous Page (Alt+P)');
+            $('#order-search-input').attr('title', 'Search Orders (Alt+S)');
+            $('#cb-select-all-1').attr('title', 'Select All (Alt+A)');
+            
+            // Auto-refresh every 5 minutes for processing orders
+            if ($('tr.status-processing').length > 0) {
+                setTimeout(function() {
+                    if (confirm('Refresh page to see latest orders?')) {
+                        location.reload();
+                    }
+                }, 300000); // 5 minutes
+            }
+        });
+        </script>
+        <?php
+    }
+}
+
+/**
+ * Create a database index for better vendor order query performance.
+ * This should be run once, e.g., on plugin activation.
+ */
+function vss_create_vendor_order_indexes() {
+    global $wpdb;
+    
+    // Check if index already exists
+    $index_exists = $wpdb->get_var("
+        SELECT COUNT(1) 
+        FROM INFORMATION_SCHEMA.STATISTICS 
+        WHERE table_schema = DATABASE() 
+        AND table_name = '{$wpdb->postmeta}' 
+        AND index_name = 'vss_vendor_lookup'
+    ");
+    
+    if ( ! $index_exists ) {
+        // Create composite index for vendor queries
+        // Indexing the first 10 characters of meta_value is usually sufficient for user IDs.
+        $wpdb->query("
+            CREATE INDEX vss_vendor_lookup 
+            ON {$wpdb->postmeta} (meta_key, meta_value(10))
+        ");
+    }
+}
+
+// Run index creation on plugin activation
+if ( defined( 'VSS_PLUGIN_FILE' ) ) {
+    register_activation_hook( VSS_PLUGIN_FILE, 'vss_create_vendor_order_indexes' );
+}
+
