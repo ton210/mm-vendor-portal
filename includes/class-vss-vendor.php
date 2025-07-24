@@ -2218,31 +2218,98 @@ class VSS_Vendor {
         .vss-tab-active { display: block; }
         </style>
 
-        <script>
-        jQuery(document).ready(function($) {
-            // Tab switching functionality
-            $('.vss-order-tabs .nav-tab').on('click', function(e) {
-                e.preventDefault();
+        <script type="text/javascript">
+        console.log('Script tag reached');
 
-                // Get the target tab ID
-                var targetId = $(this).attr('href');
+        // Check if jQuery is loaded
+        if (typeof jQuery === 'undefined') {
+            console.error('jQuery is not loaded!');
+        } else {
+            console.log('jQuery is loaded, version:', jQuery.fn.jquery);
+        }
 
-                // Remove active class from all tabs and tab contents
-                $('.vss-order-tabs .nav-tab').removeClass('nav-tab-active');
-                $('.vss-tab-content').removeClass('vss-tab-active').hide();
+        // Try multiple ways to ensure the script runs
+        (function($) {
+            console.log('IIFE executed');
 
-                // Add active class to clicked tab
-                $(this).addClass('nav-tab-active');
-
-                // Show the target tab content
-                $(targetId).addClass('vss-tab-active').show();
-
-                return false;
+            // Method 1: Document ready
+            $(document).ready(function() {
+                console.log('Document ready fired');
+                initializeTabs();
             });
 
-            // Ensure the first tab is shown on load
-            $('.vss-tab-content').first().addClass('vss-tab-active').show();
-        });
+            // Method 2: Window load (as fallback)
+            $(window).on('load', function() {
+                console.log('Window load fired');
+                initializeTabs();
+            });
+
+            // Method 3: Direct execution with timeout (last resort)
+            setTimeout(function() {
+                console.log('Timeout fired');
+                initializeTabs();
+            }, 1000);
+
+            function initializeTabs() {
+                console.log('initializeTabs called');
+
+                // Check if elements exist
+                var tabs = $('.vss-order-tabs .nav-tab');
+                var contents = $('.vss-tab-content');
+
+                console.log('Tabs found:', tabs.length);
+                console.log('Tab contents found:', contents.length);
+
+                if (tabs.length === 0) {
+                    console.error('No tabs found! Looking for all .nav-tab elements:', $('.nav-tab').length);
+                    console.error('HTML structure:', $('.vss-order-tabs').html());
+                    return;
+                }
+
+                // Remove any existing click handlers
+                tabs.off('click');
+
+                // Tab switching functionality
+                tabs.on('click', function(e) {
+                    console.log('Tab clicked!');
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    var $this = $(this);
+                    var href = $this.attr('href');
+                    console.log('Clicked tab href:', href);
+
+                    if (!href) {
+                        console.error('No href found on clicked tab');
+                        return false;
+                    }
+
+                    var targetId = href.replace('#', '');
+                    var $target = $('#' + targetId);
+
+                    console.log('Target ID:', targetId);
+                    console.log('Target found:', $target.length > 0);
+
+                    // Update active states
+                    tabs.removeClass('nav-tab-active');
+                    $this.addClass('nav-tab-active');
+
+                    // Hide all contents and show target
+                    contents.hide().removeClass('vss-tab-active');
+                    $target.show().addClass('vss-tab-active');
+
+                    console.log('Tab switch complete');
+                    return false;
+                });
+
+                // Initialize first tab
+                contents.hide();
+                contents.first().show().addClass('vss-tab-active');
+                tabs.first().addClass('nav-tab-active');
+                console.log('First tab initialized');
+            }
+
+        })(jQuery || window.jQuery || window.$);
         </script>
         <?php
     }
