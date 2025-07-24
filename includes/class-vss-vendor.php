@@ -109,28 +109,16 @@ class VSS_Vendor {
      *
      * @return bool
      */
-    private static function is_current_user_vendor() {
-        $user = wp_get_current_user();
-        
-        // Check multiple possible capability/role combinations
-        $is_vendor = current_user_can( 'vendor-mm' ) || 
-                    in_array( 'vendor-mm', $user->roles, true ) ||
-                    current_user_can( 'manage_vendor_orders' ) ||
-                    in_array( 'vendor', $user->roles, true ) ||
-                    in_array( 'shop_manager', $user->roles, true ) ||  // Fallback
-                    current_user_can( 'manage_woocommerce' );          // Fallback
-                    
-        // Debug logging
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'VSS Debug: User roles: ' . print_r( $user->roles, true ) );
-            error_log( 'VSS Debug: Has vendor-mm cap: ' . ( current_user_can( 'vendor-mm' ) ? 'YES' : 'NO' ) );
-            error_log( 'VSS Debug: Has manage_woocommerce cap: ' . ( current_user_can( 'manage_woocommerce' ) ? 'YES' : 'NO' ) );
-            error_log( 'VSS Debug: Is vendor result: ' . ( $is_vendor ? 'YES' : 'NO' ) );
-        }
-        
-        return $is_vendor;
-    }
+    // In file: ton210/mm-vendor-portal/mm-vendor-portal-46541f60b57da7a0fd4ff491885fe79981e63a04/includes/class-vss-vendor.php
 
+private static function is_current_user_vendor() {
+    $user = wp_get_current_user();
+
+    // Check multiple possible capability/role combinations
+    $is_vendor = in_array( 'vendor-mm', (array) $user->roles, true ) || current_user_can( 'vendor-mm' );
+
+    return $is_vendor;
+}
     /**
      * Vendor login redirect
      *
