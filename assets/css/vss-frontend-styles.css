@@ -579,10 +579,6 @@
     display: block !important;
 }
 
-/* Ensure the first tab content is visible by default if no active class */
-.vss-tab-content:first-of-type {
-    display: block;
-}
 
 /* Animation for tab content */
 @keyframes fadeIn {
