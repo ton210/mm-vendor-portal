@@ -1,10 +1,10 @@
 <?php
 /**
- * VSS Vendor Class - MERGED & FIXED VERSION
+ * VSS Vendor Class - COMPLETE MERGED VERSION
  *
- * Handles vendor portal functionality and vendor-specific features.
- * This version combines the original class with fixes for vendor order access,
- * pagination, display, performance optimizations, and UI enhancements.
+ * Handles vendor portal functionality with both frontend and admin capabilities.
+ * This version combines frontend portal priorities with comprehensive vendor features,
+ * including order management, pagination, performance optimizations, and UI enhancements.
  *
  * @package VendorOrderManager
  * @since 7.0.1
@@ -31,10 +31,10 @@ class VSS_Vendor {
         // Frontend forms
         add_action( 'template_redirect', [ self::class, 'handle_frontend_forms' ] );
 
-        // Login redirect
+        // Login redirect - UPDATED to prioritize frontend
         add_filter( 'login_redirect', [ self::class, 'vendor_login_redirect' ], 10, 3 );
 
-        // Admin area setup - FIXED
+        // Admin area setup - OPTIONAL (can be removed if you want frontend only)
         add_action( 'admin_menu', [ self::class, 'setup_vendor_admin_menu' ], 999 );
         add_action( 'admin_init', [ self::class, 'restrict_admin_access' ] );
 
@@ -47,6 +47,7 @@ class VSS_Vendor {
         add_action( 'wp_ajax_vss_save_draft', [ self::class, 'ajax_save_draft' ] );
         add_action( 'wp_ajax_vss_get_order_details', [ self::class, 'ajax_get_order_details' ] );
         add_action( 'wp_ajax_nopriv_vss_track_order', [ self::class, 'ajax_track_order' ] );
+        add_action( 'wp_ajax_vss_expand_order_row', [ self::class, 'ajax_expand_order_row' ] );
         add_action( 'wp_ajax_assign_order_to_vendor', [ self::class, 'ajax_assign_order_to_vendor' ] );
 
         // Vendor dashboard widgets
@@ -60,6 +61,9 @@ class VSS_Vendor {
         add_action( 'edit_user_profile', [ self::class, 'add_vendor_profile_fields' ] );
         add_action( 'personal_options_update', [ self::class, 'save_vendor_profile_fields' ] );
         add_action( 'edit_user_profile_update', [ self::class, 'save_vendor_profile_fields' ] );
+
+        // Enqueue frontend assets for vendor portal
+        add_action( 'wp_enqueue_scripts', [ self::class, 'enqueue_frontend_assets' ] );
     }
 
     /**
@@ -94,26 +98,80 @@ class VSS_Vendor {
     }
 
     /**
-     * Redirect vendors to their orders page upon login.
+     * Redirect vendors to FRONTEND portal upon login
      */
     public static function vendor_login_redirect( $redirect_to, $requested_redirect_to, $user ) {
         if ( $user && ! is_wp_error( $user ) && in_array( 'vendor-mm', (array) $user->roles, true ) ) {
-            return admin_url( 'admin.php?page=vss-vendor-orders' );
+            // Get the vendor portal page URL
+            $portal_page_id = get_option( 'vss_vendor_portal_page_id' );
+            if ( $portal_page_id ) {
+                return get_permalink( $portal_page_id );
+            }
+            // Fallback to home URL with vendor-portal slug
+            return home_url( '/vendor-portal/' );
         }
         return $redirect_to;
     }
 
     /**
-     * Setup a clean admin menu for vendors.
+     * Restrict admin access for vendors - redirect to frontend
+     */
+    public static function restrict_admin_access() {
+        if ( ! self::is_current_user_vendor() ) {
+            return;
+        }
+
+        if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+            return;
+        }
+
+        global $pagenow;
+
+        // If vendor tries to access admin dashboard, redirect to frontend
+        if ( $pagenow === 'index.php' || ( $pagenow === 'admin.php' && empty( $_GET['page'] ) ) ) {
+            $portal_page_id = get_option( 'vss_vendor_portal_page_id' );
+            if ( $portal_page_id ) {
+                wp_redirect( get_permalink( $portal_page_id ) );
+                exit;
+            }
+        }
+
+        // Allowed pages for vendors in admin
+        $allowed_pages = [
+            'admin.php',
+            'upload.php',
+            'media-new.php',
+            'admin-ajax.php',
+            'profile.php',
+        ];
+
+        // Always allow our custom vendor pages
+        if ( isset( $_GET['page'] ) && strpos( $_GET['page'], 'vss-vendor-' ) === 0 ) {
+            return;
+        }
+
+        // Optionally, completely block admin access for vendors
+        // Uncomment the following to force vendors to use frontend only:
+        /*
+        $portal_page_id = get_option( 'vss_vendor_portal_page_id' );
+        if ( $portal_page_id ) {
+            wp_redirect( get_permalink( $portal_page_id ) );
+            exit;
+        }
+        */
+    }
+
+    /**
+     * Setup minimal admin menu for vendors (optional)
      */
     public static function setup_vendor_admin_menu() {
         if ( ! self::is_current_user_vendor() ) {
             return;
         }
 
-        // Remove unnecessary menus for vendors
+        // Remove most admin menus
         $restricted_menus = [
-            'index.php', // We'll add custom dashboard
+            'index.php',
             'edit.php',
             'edit-comments.php',
             'themes.php',
@@ -130,7 +188,18 @@ class VSS_Vendor {
             remove_menu_page( $menu );
         }
 
-        // Add vendor-specific menus
+        // Add a simple redirect menu item to frontend portal
+        add_menu_page(
+            __( 'Vendor Portal', 'vss' ),
+            __( 'Go to Portal', 'vss' ),
+            'vendor-mm',
+            'vss-vendor-redirect',
+            [ self::class, 'redirect_to_frontend_portal' ],
+            'dashicons-external',
+            2
+        );
+
+        // Optional: Add admin orders page
         add_menu_page(
             __( 'My Orders', 'vss' ),
             __( 'My Orders', 'vss' ),
@@ -138,16 +207,6 @@ class VSS_Vendor {
             'vss-vendor-orders',
             [ self::class, 'render_vendor_orders_page' ],
             'dashicons-cart',
-            2
-        );
-
-        add_menu_page(
-            __( 'Dashboard', 'vss' ),
-            __( 'Dashboard', 'vss' ),
-            'vendor-mm',
-            'vss-vendor-dashboard',
-            [ self::class, 'render_admin_vendor_dashboard' ],
-            'dashicons-dashboard',
             3
         );
 
@@ -164,7 +223,351 @@ class VSS_Vendor {
     }
 
     /**
-     * Render vendor orders page with pagination and filters.
+     * Redirect to frontend portal
+     */
+    public static function redirect_to_frontend_portal() {
+        $portal_page_id = get_option( 'vss_vendor_portal_page_id' );
+        if ( $portal_page_id ) {
+            wp_redirect( get_permalink( $portal_page_id ) );
+            exit;
+        }
+    }
+
+    /**
+     * Enhanced vendor portal shortcode with all functionality
+     */
+    public static function render_vendor_portal_shortcode( $atts ) {
+        if ( ! self::is_current_user_vendor() ) {
+            return self::render_login_form();
+        }
+
+        $atts = shortcode_atts( [
+            'view' => 'dashboard',
+        ], $atts, 'vss_vendor_portal' );
+
+        ob_start();
+        ?>
+        <div class="vss-frontend-portal">
+            <?php
+            self::render_notices();
+
+            $action = isset( $_GET['vss_action'] ) ? sanitize_key( $_GET['vss_action'] ) : 'dashboard';
+            $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
+
+            // Render navigation
+            self::render_vendor_navigation( $action );
+
+            switch ( $action ) {
+                case 'orders':
+                    self::render_frontend_orders_list();
+                    break;
+
+                case 'view_order':
+                    if ( $order_id ) {
+                        self::render_frontend_order_details( $order_id );
+                    } else {
+                        self::render_error_message( __( 'Invalid order ID.', 'vss' ) );
+                    }
+                    break;
+
+                case 'reports':
+                    self::render_vendor_reports();
+                    break;
+
+                case 'settings':
+                    self::render_vendor_settings();
+                    break;
+
+                case 'dashboard':
+                default:
+                    self::render_vendor_dashboard();
+                    break;
+            }
+            ?>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Render vendor navigation
+     */
+    private static function render_vendor_navigation( $current_action ) {
+        ?>
+        <div class="vss-vendor-navigation">
+            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'dashboard', get_permalink() ) ); ?>"
+               class="<?php echo $current_action === 'dashboard' ? 'active' : ''; ?>">
+                <?php esc_html_e( 'Dashboard', 'vss' ); ?>
+            </a>
+            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>"
+               class="<?php echo $current_action === 'orders' ? 'active' : ''; ?>">
+                <?php esc_html_e( 'My Orders', 'vss' ); ?>
+            </a>
+            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'reports', get_permalink() ) ); ?>"
+               class="<?php echo $current_action === 'reports' ? 'active' : ''; ?>">
+                <?php esc_html_e( 'Reports', 'vss' ); ?>
+            </a>
+            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'settings', get_permalink() ) ); ?>"
+               class="<?php echo $current_action === 'settings' ? 'active' : ''; ?>">
+                <?php esc_html_e( 'Settings', 'vss' ); ?>
+            </a>
+            <a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" class="logout">
+                <?php esc_html_e( 'Logout', 'vss' ); ?>
+            </a>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render frontend orders list
+     */
+    private static function render_frontend_orders_list() {
+        $vendor_id = get_current_user_id();
+
+        // Get filter parameters
+        $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : 'all';
+        $search = isset( $_GET['s'] ) ? sanitize_text_field( $_GET['s'] ) : '';
+        $per_page = 20;
+        $paged = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
+
+        // Build query args
+        $args = [
+            'limit' => $per_page,
+            'offset' => ( $paged - 1 ) * $per_page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'meta_key' => '_vss_vendor_user_id',
+            'meta_value' => $vendor_id,
+            'paginate' => true,
+        ];
+
+        // Add status filter
+        if ( $status_filter !== 'all' ) {
+            $args['status'] = 'wc-' . $status_filter;
+        }
+
+        // Add search
+        if ( ! empty( $search ) ) {
+            $args['s'] = $search;
+        }
+
+        // Get orders with pagination
+        $results = wc_get_orders( $args );
+        $orders = $results->orders;
+        $total_orders = $results->total;
+        $total_pages = $results->max_num_pages;
+
+        // Get status counts
+        $status_counts = self::get_vendor_order_status_counts( $vendor_id );
+        ?>
+
+        <h2><?php esc_html_e( 'My Orders', 'vss' ); ?></h2>
+
+        <!-- Status filters -->
+        <ul class="vss-status-filters">
+            <li>
+                <a href="<?php echo esc_url( remove_query_arg( [ 'status', 'paged' ] ) ); ?>"
+                   class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>">
+                    <?php esc_html_e( 'All', 'vss' ); ?>
+                    <span class="count">(<?php echo number_format_i18n( $status_counts['all'] ); ?>)</span>
+                </a>
+            </li>
+            <?php
+            $statuses = [
+                'processing' => __( 'Processing', 'vss' ),
+                'shipped' => __( 'Shipped', 'vss' ),
+                'completed' => __( 'Completed', 'vss' ),
+            ];
+
+            foreach ( $statuses as $status => $label ) :
+                if ( isset( $status_counts[ $status ] ) && $status_counts[ $status ] > 0 ) :
+            ?>
+                <li>
+                    <a href="<?php echo esc_url( add_query_arg( [ 'status' => $status, 'paged' => 1 ] ) ); ?>"
+                       class="<?php echo $status_filter === $status ? 'current' : ''; ?>">
+                        <?php echo esc_html( $label ); ?>
+                        <span class="count">(<?php echo number_format_i18n( $status_counts[ $status ] ); ?>)</span>
+                    </a>
+                </li>
+            <?php
+                endif;
+            endforeach;
+            ?>
+        </ul>
+
+        <!-- Search form -->
+        <form method="get" class="vss-search-form">
+            <input type="hidden" name="vss_action" value="orders">
+            <?php if ( $status_filter !== 'all' ) : ?>
+                <input type="hidden" name="status" value="<?php echo esc_attr( $status_filter ); ?>">
+            <?php endif; ?>
+            <input type="search" name="s" value="<?php echo esc_attr( $search ); ?>"
+                   placeholder="<?php esc_attr_e( 'Search orders...', 'vss' ); ?>">
+            <button type="submit"><?php esc_html_e( 'Search', 'vss' ); ?></button>
+        </form>
+
+        <!-- Orders table -->
+        <table class="vss-orders-table">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e( 'Order', 'vss' ); ?></th>
+                    <th><?php esc_html_e( 'Date', 'vss' ); ?></th>
+                    <th><?php esc_html_e( 'Status', 'vss' ); ?></th>
+                    <th><?php esc_html_e( 'Customer', 'vss' ); ?></th>
+                    <th><?php esc_html_e( 'Items', 'vss' ); ?></th>
+                    <th><?php esc_html_e( 'Ship Date', 'vss' ); ?></th>
+                    <th><?php esc_html_e( 'Actions', 'vss' ); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ( ! empty( $orders ) ) : ?>
+                    <?php foreach ( $orders as $order ) : ?>
+                        <?php self::render_frontend_order_row( $order ); ?>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="7"><?php esc_html_e( 'No orders found.', 'vss' ); ?></td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <?php if ( $total_pages > 1 ) : ?>
+            <div class="vss-pagination">
+                <?php
+                echo paginate_links( [
+                    'base' => add_query_arg( 'paged', '%#%' ),
+                    'format' => '',
+                    'prev_text' => '&laquo;',
+                    'next_text' => '&raquo;',
+                    'total' => $total_pages,
+                    'current' => $paged,
+                ] );
+                ?>
+            </div>
+        <?php endif; ?>
+        <?php
+    }
+
+    /**
+     * Enqueue frontend assets
+     */
+    public static function enqueue_frontend_assets() {
+        if ( is_page() ) {
+            global $post;
+            if ( has_shortcode( $post->post_content, 'vss_vendor_portal' ) ) {
+                // Enqueue frontend styles
+                wp_enqueue_style(
+                    'vss-frontend-styles',
+                    VSS_PLUGIN_URL . 'assets/css/vss-frontend-styles.css',
+                    [],
+                    VSS_VERSION
+                );
+
+                // Enqueue frontend scripts
+                wp_enqueue_script(
+                    'vss-frontend',
+                    VSS_PLUGIN_URL . 'assets/js/vss-frontend.js',
+                    [ 'jquery', 'jquery-ui-datepicker' ],
+                    VSS_VERSION,
+                    true
+                );
+
+                // Localize script
+                wp_localize_script( 'vss-frontend', 'vss_frontend_ajax', [
+                    'ajax_url' => admin_url( 'admin-ajax.php' ),
+                    'nonce' => wp_create_nonce( 'vss_frontend_nonce' ),
+                ] );
+
+                // Enqueue jQuery UI datepicker styles
+                wp_enqueue_style( 'jquery-ui-datepicker-style', '//code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css' );
+            }
+        }
+    }
+
+    /**
+     * AJAX handler for expanding order row details
+     */
+    public static function ajax_expand_order_row() {
+        check_ajax_referer( 'vss_frontend_nonce', 'nonce' );
+
+        if ( ! self::is_current_user_vendor() ) {
+            wp_send_json_error( [ 'message' => __( 'Permission denied.', 'vss' ) ] );
+        }
+
+        $order_id = isset( $_POST['order_id'] ) ? intval( $_POST['order_id'] ) : 0;
+        if ( ! $order_id ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid order ID.', 'vss' ) ] );
+        }
+
+        $order = wc_get_order( $order_id );
+        if ( ! $order || get_post_meta( $order_id, '_vss_vendor_user_id', true ) != get_current_user_id() ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid order or permission denied.', 'vss' ) ] );
+        }
+
+        ob_start();
+        ?>
+        <div class="vss-order-expanded-details">
+            <div class="order-items">
+                <h4><?php esc_html_e( 'Order Items', 'vss' ); ?></h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Product', 'vss' ); ?></th>
+                            <th><?php esc_html_e( 'SKU', 'vss' ); ?></th>
+                            <th><?php esc_html_e( 'Quantity', 'vss' ); ?></th>
+                            <th><?php esc_html_e( 'Files', 'vss' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $order->get_items() as $item_id => $item ) : ?>
+                            <?php
+                            $product = $item->get_product();
+                            $zakeke_data = $item->get_meta( 'zakeke_data', true );
+                            $zip_url = $item->get_meta( '_vss_zakeke_printing_files_zip_url', true );
+                            ?>
+                            <tr>
+                                <td><?php echo esc_html( $item->get_name() ); ?></td>
+                                <td><?php echo esc_html( $product ? $product->get_sku() : '—' ); ?></td>
+                                <td><?php echo esc_html( $item->get_quantity() ); ?></td>
+                                <td>
+                                    <?php if ( $zip_url ) : ?>
+                                        <a href="<?php echo esc_url( $zip_url ); ?>" class="button button-small" target="_blank">
+                                            <?php esc_html_e( 'Download', 'vss' ); ?>
+                                        </a>
+                                    <?php elseif ( $zakeke_data ) : ?>
+                                        <button type="button" class="button button-small vss-manual-fetch-zakeke-zip"
+                                                data-order-id="<?php echo esc_attr( $order_id ); ?>"
+                                                data-item-id="<?php echo esc_attr( $item_id ); ?>"
+                                                data-zakeke-design-id="<?php echo esc_attr( $zakeke_data['design'] ?? '' ); ?>">
+                                            <?php esc_html_e( 'Fetch Files', 'vss' ); ?>
+                                        </button>
+                                    <?php else : ?>
+                                        <span><?php esc_html_e( 'No files', 'vss' ); ?></span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="order-actions">
+                <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], get_permalink() ) ); ?>"
+                   class="button button-primary">
+                    <?php esc_html_e( 'View Full Details', 'vss' ); ?>
+                </a>
+            </div>
+        </div>
+        <?php
+        $html = ob_get_clean();
+
+        wp_send_json_success( [ 'html' => $html ] );
+    }
+
+    /**
+     * Render vendor orders page with pagination and filters (Admin version).
      */
     public static function render_vendor_orders_page() {
         $vendor_id = get_current_user_id();
@@ -623,41 +1026,6 @@ class VSS_Vendor {
     }
 
     /**
-     * Restrict admin access for vendors to allowed pages.
-     */
-    public static function restrict_admin_access() {
-        if ( ! self::is_current_user_vendor() ) {
-            return;
-        }
-
-        if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
-            return;
-        }
-
-        global $pagenow;
-
-        // Allowed pages for vendors
-        $allowed_pages = [
-            'admin.php',
-            'upload.php',
-            'media-new.php',
-            'admin-ajax.php',
-            'profile.php',
-        ];
-
-        // Always allow our custom vendor pages
-        if ( isset( $_GET['page'] ) && strpos( $_GET['page'], 'vss-vendor-' ) === 0 ) {
-            return;
-        }
-
-        // Check if on disallowed page
-        if ( ! in_array( $pagenow, $allowed_pages, true ) ) {
-            wp_redirect( admin_url( 'admin.php?page=vss-vendor-orders' ) );
-            exit;
-        }
-    }
-
-    /**
      * Setup vendor capabilities and role.
      */
     public static function setup_vendor_capabilities() {
@@ -815,82 +1183,6 @@ class VSS_Vendor {
         }
 
         return apply_filters( 'vss_vendor_statistics', $stats, $vendor_id );
-    }
-
-    /**
-     * Render the main admin vendor dashboard page.
-     */
-    public static function render_admin_vendor_dashboard() {
-        ?>
-        <div class="wrap">
-            <h1><?php esc_html_e( 'Vendor Dashboard', 'vss' ); ?></h1>
-            <p><?php esc_html_e( 'Welcome to your vendor dashboard.', 'vss' ); ?></p>
-            <div style="margin-top: 20px;">
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>" class="button button-primary button-hero">
-                    <?php esc_html_e( 'View My Orders', 'vss' ); ?>
-                </a>
-                <a href="<?php echo esc_url( home_url( '/vendor-portal/' ) ); ?>" class="button button-secondary button-hero">
-                    <?php esc_html_e( 'Go to Frontend Portal', 'vss' ); ?>
-                </a>
-            </div>
-        </div>
-        <?php
-    }
-
-    // =========================================================================
-    // METHODS COPIED FROM ORIGINAL FILE FOR FRONTEND PORTAL & OTHER FEATURES
-    // =========================================================================
-
-    /**
-     * Render vendor portal shortcode
-     *
-     * @param array $atts
-     * @return string
-     */
-    public static function render_vendor_portal_shortcode( $atts ) {
-        if ( ! self::is_current_user_vendor() ) {
-            return self::render_login_form();
-        }
-
-        $atts = shortcode_atts( [
-            'view' => 'dashboard',
-        ], $atts, 'vss_vendor_portal' );
-
-        ob_start();
-        ?>
-        <div class="vss-frontend-portal">
-            <?php
-            self::render_notices();
-
-            $action = isset( $_GET['vss_action'] ) ? sanitize_key( $_GET['vss_action'] ) : 'dashboard';
-            $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
-
-            switch ( $action ) {
-                case 'view_order':
-                    if ( $order_id ) {
-                        self::render_frontend_order_details( $order_id );
-                    } else {
-                        self::render_error_message( __( 'Invalid order ID.', 'vss' ) );
-                    }
-                    break;
-
-                case 'reports':
-                    self::render_vendor_reports();
-                    break;
-
-                case 'settings':
-                    self::render_vendor_settings();
-                    break;
-
-                case 'dashboard':
-                default:
-                    self::render_vendor_dashboard();
-                    break;
-            }
-            ?>
-        </div>
-        <?php
-        return ob_get_clean();
     }
 
     /**
@@ -1173,18 +1465,6 @@ class VSS_Vendor {
         ?>
         <h1><?php esc_html_e( 'Vendor Dashboard', 'vss' ); ?></h1>
 
-        <div class="vss-vendor-navigation">
-            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'dashboard', get_permalink() ) ); ?>" class="active">
-                <?php esc_html_e( 'Dashboard', 'vss' ); ?>
-            </a>
-            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'reports', get_permalink() ) ); ?>">
-                <?php esc_html_e( 'Reports', 'vss' ); ?>
-            </a>
-            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'settings', get_permalink() ) ); ?>">
-                <?php esc_html_e( 'Settings', 'vss' ); ?>
-            </a>
-        </div>
-
         <div class="vss-stat-boxes">
             <div class="vss-stat-box-fe">
                 <span class="stat-number-fe"><?php echo esc_html( $stats['processing'] ); ?></span>
@@ -1218,7 +1498,7 @@ class VSS_Vendor {
         <div class="vss-quick-actions">
             <h3><?php esc_html_e( 'Quick Actions', 'vss' ); ?></h3>
             <div class="vss-action-buttons">
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>" class="button">
+                <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>" class="button">
                     <?php esc_html_e( 'View All Orders', 'vss' ); ?>
                 </a>
                 <a href="<?php echo esc_url( admin_url( 'media-new.php' ) ); ?>" class="button" target="_blank">
@@ -1268,7 +1548,7 @@ class VSS_Vendor {
                     </tbody>
                 </table>
                 <p class="vss-view-all">
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=vss-vendor-orders' ) ); ?>">
+                    <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>">
                         <?php esc_html_e( 'View all orders →', 'vss' ); ?>
                     </a>
                 </p>
@@ -1931,6 +2211,7 @@ class VSS_Vendor {
             background: #f1f1f1;
             text-decoration: none;
             color: #555;
+            cursor: pointer;
         }
         .nav-tab-active, .nav-tab:hover { background: #fff; color: #000; }
         .vss-tab-content { display: none; padding: 20px 0; }
@@ -1939,16 +2220,28 @@ class VSS_Vendor {
 
         <script>
         jQuery(document).ready(function($) {
-            $('.nav-tab').on('click', function(e) {
+            // Tab switching functionality
+            $('.vss-order-tabs .nav-tab').on('click', function(e) {
                 e.preventDefault();
-                var target = $(this).attr('href');
 
-                $('.nav-tab').removeClass('nav-tab-active');
+                // Get the target tab ID
+                var targetId = $(this).attr('href');
+
+                // Remove active class from all tabs and tab contents
+                $('.vss-order-tabs .nav-tab').removeClass('nav-tab-active');
+                $('.vss-tab-content').removeClass('vss-tab-active').hide();
+
+                // Add active class to clicked tab
                 $(this).addClass('nav-tab-active');
 
-                $('.vss-tab-content').removeClass('vss-tab-active');
-                $(target).addClass('vss-tab-active');
+                // Show the target tab content
+                $(targetId).addClass('vss-tab-active').show();
+
+                return false;
             });
+
+            // Ensure the first tab is shown on load
+            $('.vss-tab-content').first().addClass('vss-tab-active').show();
         });
         </script>
         <?php
@@ -2087,6 +2380,15 @@ class VSS_Vendor {
                         $product = $item->get_product();
                         $zakeke_data = $item->get_meta( 'zakeke_data', true );
                         $zip_url = $item->get_meta( '_vss_zakeke_printing_files_zip_url', true );
+                        $primary_zakeke_design_id = null;
+
+                        // Parse Zakeke data to get design ID
+                        if ( $zakeke_data ) {
+                            $parsed_data = is_string( $zakeke_data ) ? json_decode( $zakeke_data, true ) : (array) $zakeke_data;
+                            if ( is_array( $parsed_data ) && isset( $parsed_data['design'] ) ) {
+                                $primary_zakeke_design_id = $parsed_data['design'];
+                            }
+                        }
                         ?>
                         <tr>
                             <td>
@@ -2100,17 +2402,27 @@ class VSS_Vendor {
                             <td>
                                 <?php if ( $zip_url ) : ?>
                                     <a href="<?php echo esc_url( $zip_url ); ?>" class="button button-small" target="_blank">
-                                        <?php esc_html_e( 'Download Files', 'vss' ); ?>
+                                        <?php esc_html_e( 'Download Zakeke Files', 'vss' ); ?>
                                     </a>
-                                <?php elseif ( $zakeke_data ) : ?>
-                                    <button type="button" class="button button-small vss-fetch-zakeke"
+                                <?php elseif ( $primary_zakeke_design_id ) : ?>
+                                    <button type="button" class="button button-small vss-manual-fetch-zakeke-zip"
                                             data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
                                             data-item-id="<?php echo esc_attr( $item_id ); ?>"
-                                            data-design-id="<?php echo esc_attr( $zakeke_data['design_id'] ?? '' ); ?>">
-                                        <?php esc_html_e( 'Fetch Files', 'vss' ); ?>
+                                            data-zakeke-design-id="<?php echo esc_attr( $primary_zakeke_design_id ); ?>">
+                                        <?php esc_html_e( 'Fetch Zakeke Files', 'vss' ); ?>
                                     </button>
                                 <?php else : ?>
-                                    <span class="no-files"><?php esc_html_e( 'No design files', 'vss' ); ?></span>
+                                    <?php
+                                    // Check if there's an admin uploaded ZIP file
+                                    $admin_zip_id = get_post_meta( $order->get_id(), '_vss_attached_zip_id', true );
+                                    if ( $admin_zip_id && ( $admin_zip_url = wp_get_attachment_url( $admin_zip_id ) ) ) :
+                                    ?>
+                                        <a href="<?php echo esc_url( $admin_zip_url ); ?>" class="button button-small" target="_blank">
+                                            <?php esc_html_e( 'Download Admin ZIP', 'vss' ); ?>
+                                        </a>
+                                    <?php else : ?>
+                                        <span class="no-files"><?php esc_html_e( 'No design files', 'vss' ); ?></span>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -2118,6 +2430,44 @@ class VSS_Vendor {
                 </tbody>
             </table>
         </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            // Handle Zakeke file fetching
+            $('.vss-manual-fetch-zakeke-zip').on('click', function() {
+                var $button = $(this);
+                var originalText = $button.text();
+
+                $button.prop('disabled', true).text('<?php esc_js_e( 'Fetching...', 'vss' ); ?>');
+
+                $.ajax({
+                    url: vss_frontend_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'vss_manual_fetch_zip',
+                        order_id: $button.data('order-id'),
+                        item_id: $button.data('item-id'),
+                        primary_zakeke_design_id: $button.data('zakeke-design-id'),
+                        _ajax_nonce: vss_frontend_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Replace button with download link
+                            var downloadLink = '<a href="' + response.data.zip_url + '" class="button button-small" target="_blank"><?php esc_js_e( 'Download Zakeke Files', 'vss' ); ?></a>';
+                            $button.replaceWith(downloadLink);
+                        } else {
+                            alert(response.data.message || '<?php esc_js_e( 'Failed to fetch files. Please try again.', 'vss' ); ?>');
+                            $button.prop('disabled', false).text(originalText);
+                        }
+                    },
+                    error: function() {
+                        alert('<?php esc_js_e( 'An error occurred. Please try again.', 'vss' ); ?>');
+                        $button.prop('disabled', false).text(originalText);
+                    }
+                });
+            });
+        });
+        </script>
         <?php
     }
 
@@ -2372,14 +2722,65 @@ class VSS_Vendor {
             <div class="files-grid">
                 <div class="file-category">
                     <h5><?php esc_html_e( 'Design Files', 'vss' ); ?></h5>
-                    <?php foreach ( $order->get_items() as $item_id => $item ) : ?>
+                    <?php
+                    $has_design_files = false;
+
+                    // Check for Zakeke files
+                    foreach ( $order->get_items() as $item_id => $item ) : ?>
                         <?php
                         $zip_url = $item->get_meta( '_vss_zakeke_printing_files_zip_url', true );
+                        $zakeke_data = $item->get_meta( 'zakeke_data', true );
+                        $primary_zakeke_design_id = null;
+
+                        // Parse Zakeke data to get design ID
+                        if ( $zakeke_data ) {
+                            $parsed_data = is_string( $zakeke_data ) ? json_decode( $zakeke_data, true ) : (array) $zakeke_data;
+                            if ( is_array( $parsed_data ) && isset( $parsed_data['design'] ) ) {
+                                $primary_zakeke_design_id = $parsed_data['design'];
+                            }
+                        }
+
                         if ( $zip_url ) :
+                            $has_design_files = true;
                         ?>
-                            <p><a href="<?php echo esc_url( $zip_url ); ?>" target="_blank"><?php echo esc_html( $item->get_name() ); ?> - <?php esc_html_e( 'Design Files', 'vss' ); ?></a></p>
+                            <p>
+                                <strong><?php echo esc_html( $item->get_name() ); ?>:</strong><br>
+                                <a href="<?php echo esc_url( $zip_url ); ?>" target="_blank">
+                                    <?php esc_html_e( 'Download Zakeke Design Files', 'vss' ); ?>
+                                </a>
+                            </p>
+                        <?php elseif ( $primary_zakeke_design_id ) :
+                            $has_design_files = true;
+                        ?>
+                            <p>
+                                <strong><?php echo esc_html( $item->get_name() ); ?>:</strong><br>
+                                <button type="button" class="button button-small vss-manual-fetch-zakeke-zip"
+                                        data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
+                                        data-item-id="<?php echo esc_attr( $item_id ); ?>"
+                                        data-zakeke-design-id="<?php echo esc_attr( $primary_zakeke_design_id ); ?>">
+                                    <?php esc_html_e( 'Fetch Zakeke Files', 'vss' ); ?>
+                                </button>
+                            </p>
                         <?php endif; ?>
                     <?php endforeach; ?>
+
+                    <?php
+                    // Check for admin uploaded ZIP
+                    $admin_zip_id = get_post_meta( $order->get_id(), '_vss_attached_zip_id', true );
+                    if ( $admin_zip_id && ( $admin_zip_url = wp_get_attachment_url( $admin_zip_id ) ) ) :
+                        $has_design_files = true;
+                    ?>
+                        <p>
+                            <strong><?php esc_html_e( 'Admin Uploaded ZIP:', 'vss' ); ?></strong><br>
+                            <a href="<?php echo esc_url( $admin_zip_url ); ?>" target="_blank">
+                                <?php esc_html_e( 'Download ZIP File', 'vss' ); ?>
+                            </a>
+                        </p>
+                    <?php endif; ?>
+
+                    <?php if ( ! $has_design_files ) : ?>
+                        <p class="no-files"><?php esc_html_e( 'No design files available.', 'vss' ); ?></p>
+                    <?php endif; ?>
                 </div>
 
                 <div class="file-category">
@@ -2522,7 +2923,7 @@ class VSS_Vendor {
 
 
 // =========================================================================
-// HELPER FUNCTIONS & HOOKS (from additions)
+// HELPER FUNCTIONS & HOOKS
 // =========================================================================
 
 /**
