@@ -1,0 +1,351 @@
+/* Vendor Order Manager - Global Styles
+ * Version: 7.0.0
+ * This file contains global styles that apply across the entire plugin
+ */
+
+/* ==========================================================================
+   Base Plugin Styles
+   ========================================================================== */
+
+.vss-wrapper {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+/* ==========================================================================
+   Status Badges
+   ========================================================================== */
+
+.vss-status-badge,
+.vss-admin-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+.vss-status-pending {
+    background-color: #ffba00;
+    color: #fff;
+}
+
+.vss-status-approved {
+    background-color: #4CAF50;
+    color: #fff;
+}
+
+.vss-status-disapproved {
+    background-color: #F44336;
+    color: #fff;
+}
+
+.vss-status-none {
+    background-color: #ababab;
+    color: #fff;
+}
+
+/* ==========================================================================
+   Order Status Row Colors (Global)
+   ========================================================================== */
+
+/* Force colors with high specificity for admin tables */
+.wp-admin .wp-list-table.orders tbody tr.vss-late-order,
+.wp-admin table.orders tbody tr.vss-late-order,
+tr.vss-late-order { 
+    background-color: #ffebee !important;
+}
+
+.wp-admin .wp-list-table.orders tbody tr.vss-shipped-order,
+.wp-admin table.orders tbody tr.vss-shipped-order,
+tr.vss-shipped-order { 
+    background-color: #e8f5e9 !important;
+}
+
+.wp-admin .wp-list-table.orders tbody tr.vss-processing-order,
+.wp-admin table.orders tbody tr.vss-processing-order,
+tr.vss-processing-order { 
+    background-color: #fff3cd !important;
+}
+
+.wp-admin .wp-list-table.orders tbody tr.vss-completed-order,
+.wp-admin table.orders tbody tr.vss-completed-order,
+tr.vss-completed-order { 
+    background-color: #e1f5fe !important;
+}
+
+.wp-admin .wp-list-table.orders tbody tr.vss-pending-order,
+.wp-admin table.orders tbody tr.vss-pending-order,
+tr.vss-pending-order { 
+    background-color: #f5f5f5 !important;
+}
+
+/* Override WordPress striped table styles */
+.wp-admin .striped > tbody > tr.vss-shipped-order:nth-child(odd),
+.wp-admin .striped > tbody > tr.vss-shipped-order:nth-child(even) {
+    background-color: #e8f5e9 !important;
+}
+
+.wp-admin .striped > tbody > tr.vss-processing-order:nth-child(odd),
+.wp-admin .striped > tbody > tr.vss-processing-order:nth-child(even) {
+    background-color: #fff3cd !important;
+}
+
+.wp-admin .striped > tbody > tr.vss-completed-order:nth-child(odd),
+.wp-admin .striped > tbody > tr.vss-completed-order:nth-child(even) {
+    background-color: #e1f5fe !important;
+}
+
+.wp-admin .striped > tbody > tr.vss-late-order:nth-child(odd),
+.wp-admin .striped > tbody > tr.vss-late-order:nth-child(even) {
+    background-color: #ffebee !important;
+}
+
+/* ==========================================================================
+   Notices and Messages
+   ========================================================================== */
+
+.vss-success-notice,
+.vss-error-notice,
+.vss-warning-notice,
+.vss-info-notice {
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 4px;
+    border-left: 4px solid;
+}
+
+.vss-success-notice {
+    background-color: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+.vss-error-notice {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.vss-warning-notice {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+    color: #856404;
+}
+
+.vss-info-notice {
+    background-color: #d1ecf1;
+    border-color: #17a2b8;
+    color: #0c5460;
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.vss-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+
+.vss-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: vss-spin 1s linear infinite;
+}
+
+@keyframes vss-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Buttons and Actions
+   ========================================================================== */
+
+.vss-button {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.vss-button-primary {
+    background-color: #0073aa;
+    color: #fff;
+    border-color: #0073aa;
+}
+
+.vss-button-primary:hover {
+    background-color: #005a87;
+    border-color: #005a87;
+    color: #fff;
+}
+
+.vss-button-secondary {
+    background-color: #f7f7f7;
+    color: #555;
+    border-color: #ccc;
+}
+
+.vss-button-secondary:hover {
+    background-color: #e7e7e7;
+    border-color: #999;
+}
+
+.vss-button-danger {
+    background-color: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+}
+
+.vss-button-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+
+.vss-form-group {
+    margin-bottom: 20px;
+}
+
+.vss-form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #23282d;
+}
+
+.vss-form-group input[type="text"],
+.vss-form-group input[type="email"],
+.vss-form-group input[type="number"],
+.vss-form-group input[type="date"],
+.vss-form-group select,
+.vss-form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.vss-form-group input:focus,
+.vss-form-group select:focus,
+.vss-form-group textarea:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+
+.vss-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.vss-table th,
+.vss-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.vss-table th {
+    background-color: #f6f7f7;
+    font-weight: 600;
+    color: #23282d;
+}
+
+.vss-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+    .vss-table {
+        font-size: 14px;
+    }
+    
+    .vss-table th,
+    .vss-table td {
+        padding: 8px;
+    }
+    
+    .vss-button {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.vss-text-center { text-align: center; }
+.vss-text-right { text-align: right; }
+.vss-text-left { text-align: left; }
+
+.vss-mt-0 { margin-top: 0; }
+.vss-mt-1 { margin-top: 10px; }
+.vss-mt-2 { margin-top: 20px; }
+.vss-mt-3 { margin-top: 30px; }
+
+.vss-mb-0 { margin-bottom: 0; }
+.vss-mb-1 { margin-bottom: 10px; }
+.vss-mb-2 { margin-bottom: 20px; }
+.vss-mb-3 { margin-bottom: 30px; }
+
+.vss-p-0 { padding: 0; }
+.vss-p-1 { padding: 10px; }
+.vss-p-2 { padding: 20px; }
+.vss-p-3 { padding: 30px; }
+
+.vss-hidden { display: none; }
+.vss-block { display: block; }
+.vss-inline-block { display: inline-block; }
+
+/* ==========================================================================
+   Print Styles
+   ========================================================================== */
+
+@media print {
+    .vss-no-print {
+        display: none !important;
+    }
+    
+    .vss-table {
+        border: 1px solid #000;
+    }
+    
+    .vss-table th,
+    .vss-table td {
+        border: 1px solid #000;
+    }
+}
