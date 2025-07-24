@@ -27,34 +27,34 @@ class VSS_Vendor {
         add_shortcode( 'vss_vendor_portal', [ self::class, 'render_vendor_portal_shortcode' ] );
         add_shortcode( 'vss_vendor_stats', [ self::class, 'render_vendor_stats_shortcode' ] );
         add_shortcode( 'vss_vendor_earnings', [ self::class, 'render_vendor_earnings_shortcode' ] );
-        
+
         // Frontend forms
         add_action( 'template_redirect', [ self::class, 'handle_frontend_forms' ] );
-        
+
         // Login redirect
         add_filter( 'login_redirect', [ self::class, 'vendor_login_redirect' ], 10, 3 );
-        
+
         // Admin area setup - FIXED
         add_action( 'admin_menu', [ self::class, 'setup_vendor_admin_menu' ], 999 );
         add_action( 'admin_init', [ self::class, 'restrict_admin_access' ] );
-        
+
         // Prevent vendor redirect to my-account
         add_action( 'init', [ self::class, 'prevent_vendor_redirect' ], 1 );
         add_filter( 'woocommerce_prevent_admin_access', [ self::class, 'allow_vendor_admin_access' ], 10, 1 );
-        
+
         // AJAX handlers
         add_action( 'wp_ajax_vss_manual_fetch_zip', [ self::class, 'ajax_manual_fetch_zakeke_zip' ] );
         add_action( 'wp_ajax_vss_save_draft', [ self::class, 'ajax_save_draft' ] );
         add_action( 'wp_ajax_vss_get_order_details', [ self::class, 'ajax_get_order_details' ] );
         add_action( 'wp_ajax_nopriv_vss_track_order', [ self::class, 'ajax_track_order' ] );
         add_action( 'wp_ajax_assign_order_to_vendor', [ self::class, 'ajax_assign_order_to_vendor' ] );
-        
+
         // Vendor dashboard widgets
         add_action( 'wp_dashboard_setup', [ self::class, 'add_vendor_dashboard_widgets' ] );
-        
+
         // Setup vendor roles and capabilities
         add_action( 'init', [ self::class, 'setup_vendor_capabilities' ] );
-        
+
         // Profile fields
         add_action( 'show_user_profile', [ self::class, 'add_vendor_profile_fields' ] );
         add_action( 'edit_user_profile', [ self::class, 'add_vendor_profile_fields' ] );
@@ -168,18 +168,18 @@ class VSS_Vendor {
      */
     public static function render_vendor_orders_page() {
         $vendor_id = get_current_user_id();
-        
+
         // Get filter parameters
         $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : 'all';
         $search = isset( $_GET['s'] ) ? sanitize_text_field( $_GET['s'] ) : '';
         $per_page = 100;
         $paged = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
-        
+
         // Handle bulk actions
         if ( isset( $_POST['bulk_action'] ) && isset( $_POST['order_ids'] ) && check_admin_referer( 'vss_bulk_orders' ) ) {
             self::handle_bulk_actions();
         }
-        
+
         // Build query args
         $args = [
             'limit' => $per_page,
@@ -190,54 +190,53 @@ class VSS_Vendor {
             'meta_value' => $vendor_id,
             'paginate' => true,
         ];
-        
+
         // Add status filter
         if ( $status_filter !== 'all' ) {
             $args['status'] = 'wc-' . $status_filter;
         }
-        
+
         // Add search
         if ( ! empty( $search ) ) {
             $args['s'] = $search;
         }
-        
+
         // Get orders with pagination
         $results = wc_get_orders( $args );
         $orders = $results->orders;
         $total_orders = $results->total;
         $total_pages = $results->max_num_pages;
-        
+
         // Get status counts
         $status_counts = self::get_vendor_order_status_counts( $vendor_id );
-        
+
         // Sort orders to put processing orders at the top
         usort( $orders, function( $a, $b ) {
             $a_processing = $a->has_status( 'processing' ) ? 0 : 1;
             $b_processing = $b->has_status( 'processing' ) ? 0 : 1;
-            
+
             if ( $a_processing !== $b_processing ) {
                 return $a_processing - $b_processing;
             }
-            
+
             // Then sort by date
             return $b->get_date_created()->getTimestamp() - $a->get_date_created()->getTimestamp();
         });
-        
+
         ?>
         <div class="wrap">
             <h1 class="wp-heading-inline"><?php esc_html_e( 'My Orders', 'vss' ); ?></h1>
             <a href="<?php echo esc_url( home_url( '/vendor-portal/' ) ); ?>" class="page-title-action">
                 <?php esc_html_e( 'Go to Vendor Portal', 'vss' ); ?>
             </a>
-            
+
             <hr class="wp-header-end">
-            
-            <!-- Status Filter Tabs -->
+
             <ul class="subsubsub">
                 <li class="all">
-                    <a href="<?php echo esc_url( remove_query_arg( [ 'status', 'paged' ] ) ); ?>" 
+                    <a href="<?php echo esc_url( remove_query_arg( [ 'status', 'paged' ] ) ); ?>"
                        class="<?php echo $status_filter === 'all' ? 'current' : ''; ?>">
-                        <?php esc_html_e( 'All', 'vss' ); ?> 
+                        <?php esc_html_e( 'All', 'vss' ); ?>
                         <span class="count">(<?php echo number_format_i18n( $status_counts['all'] ); ?>)</span>
                     </a>
                 </li>
@@ -248,42 +247,40 @@ class VSS_Vendor {
                     'completed' => __( 'Completed', 'vss' ),
                     'pending' => __( 'Pending', 'vss' ),
                 ];
-                
+
                 foreach ( $statuses as $status => $label ) :
                     if ( isset( $status_counts[ $status ] ) && $status_counts[ $status ] > 0 ) :
                 ?>
                         <li class="<?php echo esc_attr( $status ); ?>">
-                            | <a href="<?php echo esc_url( add_query_arg( [ 'status' => $status, 'paged' => 1 ] ) ); ?>" 
+                            | <a href="<?php echo esc_url( add_query_arg( [ 'status' => $status, 'paged' => 1 ] ) ); ?>"
                                  class="<?php echo $status_filter === $status ? 'current' : ''; ?>">
-                                <?php echo esc_html( $label ); ?> 
+                                <?php echo esc_html( $label ); ?>
                                 <span class="count">(<?php echo number_format_i18n( $status_counts[ $status ] ); ?>)</span>
                             </a>
                         </li>
-                <?php 
+                <?php
                     endif;
-                endforeach; 
+                endforeach;
                 ?>
             </ul>
-            
-            <!-- Search Form -->
+
             <form method="get" class="search-form">
                 <input type="hidden" name="page" value="vss-vendor-orders">
                 <?php if ( $status_filter !== 'all' ) : ?>
                     <input type="hidden" name="status" value="<?php echo esc_attr( $status_filter ); ?>">
                 <?php endif; ?>
                 <p class="search-box">
-                    <input type="search" id="order-search-input" name="s" 
-                           value="<?php echo esc_attr( $search ); ?>" 
+                    <input type="search" id="order-search-input" name="s"
+                           value="<?php echo esc_attr( $search ); ?>"
                            placeholder="<?php esc_attr_e( 'Search by order number...', 'vss' ); ?>">
-                    <input type="submit" id="search-submit" class="button" 
+                    <input type="submit" id="search-submit" class="button"
                            value="<?php esc_attr_e( 'Search Orders', 'vss' ); ?>">
                 </p>
             </form>
-            
-            <!-- Bulk Actions Form -->
+
             <form method="post" id="vss-orders-form">
                 <?php wp_nonce_field( 'vss_bulk_orders' ); ?>
-                
+
                 <div class="tablenav top">
                     <div class="alignleft actions bulkactions">
                         <select name="bulk_action" id="bulk-action-selector-top">
@@ -292,7 +289,7 @@ class VSS_Vendor {
                         </select>
                         <input type="submit" id="doaction" class="button action" value="<?php esc_attr_e( 'Apply', 'vss' ); ?>">
                     </div>
-                    
+
                     <?php if ( $total_pages > 1 ) : ?>
                     <div class="tablenav-pages">
                         <span class="displaying-num">
@@ -311,8 +308,7 @@ class VSS_Vendor {
                     </div>
                     <?php endif; ?>
                 </div>
-                
-                <!-- Orders Table -->
+
                 <table class="wp-list-table widefat fixed striped orders vss-vendor-orders-table">
                     <thead>
                         <tr>
@@ -325,6 +321,7 @@ class VSS_Vendor {
                             <th scope="col" class="manage-column"><?php esc_html_e( 'Customer', 'vss' ); ?></th>
                             <th scope="col" class="manage-column"><?php esc_html_e( 'Items', 'vss' ); ?></th>
                             <th scope="col" class="manage-column"><?php esc_html_e( 'Ship Date', 'vss' ); ?></th>
+                            <th scope="col" class="manage-column"><?php esc_html_e( 'Files', 'vss' ); ?></th>
                             <th scope="col" class="manage-column"><?php esc_html_e( 'Actions', 'vss' ); ?></th>
                         </tr>
                     </thead>
@@ -335,15 +332,13 @@ class VSS_Vendor {
                             <?php endforeach; ?>
                         <?php else : ?>
                             <tr>
-                                <td colspan="8">
-                                    <p><?php esc_html_e( 'No orders found.', 'vss' ); ?></p>
+                                <td colspan="9"> <p><?php esc_html_e( 'No orders found.', 'vss' ); ?></p>
                                 </td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
-                
-                <!-- Bottom pagination -->
+
                 <?php if ( $total_pages > 1 ) : ?>
                 <div class="tablenav bottom">
                     <div class="tablenav-pages">
@@ -361,7 +356,7 @@ class VSS_Vendor {
                 </div>
                 <?php endif; ?>
             </form>
-            
+
             <style>
             /* Status-based row colors */
             .vss-vendor-orders-table tbody tr.status-processing {
@@ -379,7 +374,7 @@ class VSS_Vendor {
             .vss-vendor-orders-table tbody tr.status-late {
                 background-color: #ffebee !important;
             }
-            
+
             /* Override striped table styles */
             .vss-vendor-orders-table.striped > tbody > tr.status-processing:nth-child(odd),
             .vss-vendor-orders-table.striped > tbody > tr.status-processing:nth-child(even) {
@@ -397,59 +392,59 @@ class VSS_Vendor {
             .vss-vendor-orders-table.striped > tbody > tr.status-late:nth-child(even) {
                 background-color: #ffebee !important;
             }
-            
-            .vss-late-indicator { 
-                background: #d32f2f; 
-                color: white; 
-                padding: 2px 6px; 
-                border-radius: 3px; 
-                font-size: 0.8em; 
-                font-weight: bold; 
+
+            .vss-late-indicator {
+                background: #d32f2f;
+                color: white;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 0.8em;
+                font-weight: bold;
                 display: inline-block;
                 margin-left: 5px;
             }
-            
-            .search-form { 
-                float: right; 
-                margin-top: 10px; 
-                margin-bottom: 20px; 
+
+            .search-form {
+                float: right;
+                margin-top: 10px;
+                margin-bottom: 20px;
             }
-            
-            .search-box input[type="search"] { 
-                width: 280px; 
-                margin-right: 5px; 
+
+            .search-box input[type="search"] {
+                width: 280px;
+                margin-right: 5px;
             }
-            
+
             /* Make sure processing orders stand out */
             .vss-vendor-orders-table tbody tr.status-processing td {
                 font-weight: 500;
             }
             </style>
-            
+
             <script>
             jQuery(document).ready(function($) {
                 // Select all checkbox functionality
                 $('#cb-select-all-1').on('change', function() {
                     $('input[name="order_ids[]"]').prop('checked', $(this).is(':checked'));
                 });
-                
+
                 // Confirm bulk actions
                 $('#doaction').on('click', function(e) {
                     var action = $('#bulk-action-selector-top').val();
                     var checked = $('input[name="order_ids[]"]:checked').length;
-                    
+
                     if (!action) {
                         e.preventDefault();
                         alert('<?php esc_js_e( 'Please select a bulk action.', 'vss' ); ?>');
                         return false;
                     }
-                    
+
                     if (checked === 0) {
                         e.preventDefault();
                         alert('<?php esc_js_e( 'Please select at least one order.', 'vss' ); ?>');
                         return false;
                     }
-                    
+
                     if (action === 'mark_shipped') {
                         return confirm('<?php esc_js_e( 'Are you sure you want to mark the selected orders as shipped?', 'vss' ); ?>');
                     }
@@ -459,7 +454,7 @@ class VSS_Vendor {
         </div>
         <?php
     }
-    
+
     /**
      * Render a single order row for the admin table.
      */
@@ -467,11 +462,11 @@ class VSS_Vendor {
         $order_id = $order->get_id();
         $ship_date = get_post_meta( $order_id, '_vss_estimated_ship_date', true );
         $is_late = false;
-        
+
         if ( $ship_date && $order->has_status( 'processing' ) ) {
             $is_late = strtotime( $ship_date ) < current_time( 'timestamp' );
         }
-        
+
         // Determine row class based on status
         $row_classes = [];
         if ( $is_late ) {
@@ -485,7 +480,7 @@ class VSS_Vendor {
         } elseif ( $order->has_status( 'pending' ) ) {
             $row_classes[] = 'status-pending';
         }
-        
+
         $row_class = implode( ' ', $row_classes );
         ?>
         <tr class="<?php echo esc_attr( $row_class ); ?>">
@@ -519,7 +514,7 @@ class VSS_Vendor {
                 <?php endif; ?>
             </td>
             <td>
-                <?php 
+                <?php
                 $item_count = $order->get_item_count();
                 echo sprintf( _n( '%d item', '%d items', $item_count, 'vss' ), $item_count );
                 ?>
@@ -532,7 +527,40 @@ class VSS_Vendor {
                 <?php endif; ?>
             </td>
             <td>
-                <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], home_url( '/vendor-portal/' ) ) ); ?>" 
+                <?php
+                // Display attached ZIP file from admin
+                $zip_file_id = get_post_meta( $order_id, '_vss_attached_zip_id', true );
+                if ( $zip_file_id && ($zip_file_url = wp_get_attachment_url( $zip_file_id )) ) {
+                    echo '<a href="' . esc_url( $zip_file_url ) . '" class="button button-small" target="_blank">' . esc_html__( 'Download ZIP', 'vss' ) . '</a><br>';
+                }
+
+                // Zakeke files
+                foreach ($order->get_items() as $item_id => $item) {
+                    $zakeke_data = $item->get_meta('zakeke_data', true);
+                    $zip_url = $item->get_meta('_vss_zakeke_printing_files_zip_url', true);
+                    $primary_zakeke_design_id = null;
+
+                    if ($zakeke_data) {
+                        $parsed_data = is_string($zakeke_data) ? json_decode($zakeke_data, true) : (array)$zakeke_data;
+                        if (is_array($parsed_data) && isset($parsed_data['design'])) {
+                            $primary_zakeke_design_id = $parsed_data['design'];
+                        }
+                    }
+
+                    if ($zip_url) {
+                        echo '<a href="' . esc_url($zip_url) . '" class="button button-small" target="_blank">' . esc_html__('Zakeke Files', 'vss') . '</a><br>';
+                    } elseif ($primary_zakeke_design_id) {
+                        echo '<button type="button" class="button button-small vss-manual-fetch-zakeke-zip"
+                                data-order-id="' . esc_attr($order_id) . '"
+                                data-item-id="' . esc_attr($item_id) . '"
+                                data-zakeke-design-id="' . esc_attr($primary_zakeke_design_id) . '">'
+                                . esc_html__('Fetch Zakeke', 'vss') . '</button><br>';
+                    }
+                }
+                ?>
+            </td>
+            <td>
+                <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], home_url( '/vendor-portal/' ) ) ); ?>"
                    class="button button-small">
                     <?php esc_html_e( 'View', 'vss' ); ?>
                 </a>
@@ -552,7 +580,7 @@ class VSS_Vendor {
             'shipped' => 0,
             'completed' => 0,
         ];
-        
+
         // Get all count
         $all_args = [
             'meta_key' => '_vss_vendor_user_id',
@@ -561,14 +589,14 @@ class VSS_Vendor {
             'limit' => -1,
         ];
         $counts['all'] = count( wc_get_orders( $all_args ) );
-        
+
         // Get individual status counts
         foreach ( [ 'pending', 'processing', 'shipped', 'completed' ] as $status ) {
             $args = $all_args;
             $args['status'] = 'wc-' . $status;
             $counts[ $status ] = count( wc_get_orders( $args ) );
         }
-        
+
         return $counts;
     }
 
@@ -579,7 +607,7 @@ class VSS_Vendor {
         $action = sanitize_key( $_POST['bulk_action'] );
         $order_ids = array_map( 'intval', $_POST['order_ids'] );
         $vendor_id = get_current_user_id();
-        
+
         if ( $action === 'mark_shipped' ) {
             $updated = 0;
             foreach ( $order_ids as $order_id ) {
@@ -607,7 +635,7 @@ class VSS_Vendor {
         }
 
         global $pagenow;
-        
+
         // Allowed pages for vendors
         $allowed_pages = [
             'admin.php',
@@ -675,7 +703,7 @@ class VSS_Vendor {
             __( 'Recent Orders', 'vss' ),
             [ self::class, 'render_dashboard_recent_orders_widget' ]
         );
-        
+
         wp_add_dashboard_widget(
             'vss_vendor_pending_tasks_widget',
             __( 'Pending Tasks', 'vss' ),
@@ -777,7 +805,7 @@ class VSS_Vendor {
             'limit' => -1,
         ] );
         $stats['shipped_this_month'] = count( $shipped_orders );
-        
+
         // Earnings this month
         foreach ( $shipped_orders as $order ) {
             $costs = get_post_meta( $order->get_id(), '_vss_order_costs', true );
@@ -808,7 +836,7 @@ class VSS_Vendor {
         </div>
         <?php
     }
-    
+
     // =========================================================================
     // METHODS COPIED FROM ORIGINAL FILE FOR FRONTEND PORTAL & OTHER FEATURES
     // =========================================================================
@@ -833,7 +861,7 @@ class VSS_Vendor {
         <div class="vss-frontend-portal">
             <?php
             self::render_notices();
-            
+
             $action = isset( $_GET['vss_action'] ) ? sanitize_key( $_GET['vss_action'] ) : 'dashboard';
             $order_id = isset( $_GET['order_id'] ) ? intval( $_GET['order_id'] ) : 0;
 
@@ -949,7 +977,7 @@ class VSS_Vendor {
             if ( isset( $costs['total_cost'] ) ) {
                 $amount = floatval( $costs['total_cost'] );
                 $total_earnings += $amount;
-                
+
                 $date_key = $order->get_date_modified()->date( 'Y-m-d' );
                 if ( ! isset( $daily_earnings[ $date_key ] ) ) {
                     $daily_earnings[ $date_key ] = 0;
@@ -966,7 +994,7 @@ class VSS_Vendor {
                 <div class="total-amount"><?php echo wc_price( $total_earnings ); ?></div>
                 <div class="order-count"><?php printf( esc_html__( 'From %d orders', 'vss' ), count( $orders ) ); ?></div>
             </div>
-            
+
             <?php if ( $atts['show_chart'] === 'yes' && ! empty( $daily_earnings ) ) : ?>
                 <div class="earnings-chart" id="vss-earnings-chart-<?php echo esc_attr( uniqid() ); ?>">
                     <canvas></canvas>
@@ -983,7 +1011,7 @@ class VSS_Vendor {
         <?php
         return ob_get_clean();
     }
-    
+
     /**
      * Render dashboard pending tasks widget
      */
@@ -1010,9 +1038,9 @@ class VSS_Vendor {
         ] );
 
         if ( ! empty( $no_ship_date ) ) {
-            $tasks[] = sprintf( 
-                _n( '%d order needs ship date', '%d orders need ship date', count( $no_ship_date ), 'vss' ), 
-                count( $no_ship_date ) 
+            $tasks[] = sprintf(
+                _n( '%d order needs ship date', '%d orders need ship date', count( $no_ship_date ), 'vss' ),
+                count( $no_ship_date )
             );
         }
 
@@ -1042,9 +1070,9 @@ class VSS_Vendor {
         ] );
 
         if ( ! empty( $no_mockup ) ) {
-            $tasks[] = sprintf( 
-                _n( '%d order needs mockup', '%d orders need mockup', count( $no_mockup ), 'vss' ), 
-                count( $no_mockup ) 
+            $tasks[] = sprintf(
+                _n( '%d order needs mockup', '%d orders need mockup', count( $no_mockup ), 'vss' ),
+                count( $no_mockup )
             );
         }
 
@@ -1144,7 +1172,7 @@ class VSS_Vendor {
         $stats = self::get_vendor_statistics( $vendor_id );
         ?>
         <h1><?php esc_html_e( 'Vendor Dashboard', 'vss' ); ?></h1>
-        
+
         <div class="vss-vendor-navigation">
             <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'dashboard', get_permalink() ) ); ?>" class="active">
                 <?php esc_html_e( 'Dashboard', 'vss' ); ?>
@@ -1342,7 +1370,7 @@ class VSS_Vendor {
                         <?php
                         $mockup_status = get_post_meta( $order->get_id(), '_vss_mockup_status', true );
                         $production_status = get_post_meta( $order->get_id(), '_vss_production_file_status', true );
-                        
+
                         $issues = [];
                         if ( $mockup_status === 'disapproved' ) {
                             $issues[] = __( 'Mockup disapproved', 'vss' );
@@ -1388,7 +1416,7 @@ class VSS_Vendor {
 
         // Assign the order to the vendor
         update_post_meta( $order_id, '_vss_vendor_user_id', $vendor_id );
-        
+
         // Add order note
         $order->add_order_note( sprintf( 'Order assigned to vendor (User ID: %d)', $vendor_id ) );
 
@@ -1439,7 +1467,7 @@ class VSS_Vendor {
         }
 
         $order_id = isset( $_POST['order_id'] ) ? intval( $_POST['order_id'] ) : 0;
-        
+
         if ( ! $order_id ) {
             wp_send_json_error( [ 'message' => __( 'Invalid order ID.', 'vss' ) ] );
         }
@@ -1572,7 +1600,7 @@ class VSS_Vendor {
         // Fetch from Zakeke API (assuming this class exists)
         if ( class_exists( 'VSS_Zakeke_API' ) ) {
             $zakeke_response = VSS_Zakeke_API::get_zakeke_order_details_by_wc_order_id( $order_id );
-            
+
             if ( ! $zakeke_response || ! isset( $zakeke_response['items'] ) ) {
                 wp_send_json_error( [ 'message' => __( 'Could not retrieve Zakeke data.', 'vss' ) ] );
             }
@@ -1584,10 +1612,10 @@ class VSS_Vendor {
                         $found_zip_url = $zakeke_item['printingFilesZip'];
                         $item->update_meta_data( '_vss_zakeke_printing_files_zip_url', esc_url_raw( $found_zip_url ) );
                         $item->save();
-                        
+
                         update_post_meta( $order_id, '_vss_zakeke_fetch_attempt_complete', true );
                         $order->add_order_note( sprintf( __( 'Vendor manually fetched Zakeke ZIP for item #%s.', 'vss' ), $item_id ) );
-                        
+
                         wp_send_json_success( [
                             'message' => __( 'Zakeke files retrieved successfully!', 'vss' ),
                             'zip_url' => $found_zip_url,
@@ -1680,9 +1708,9 @@ class VSS_Vendor {
         update_post_meta( $order->get_id(), '_vss_production_confirmed_at', current_time( 'timestamp' ) );
         update_post_meta( $order->get_id(), '_vss_production_confirmed_by', get_current_user_id() );
 
-        $order->add_order_note( sprintf( 
-            __( 'Vendor confirmed production with estimated ship date: %s', 'vss' ), 
-            date_i18n( get_option( 'date_format' ), strtotime( $estimated_ship_date ) ) 
+        $order->add_order_note( sprintf(
+            __( 'Vendor confirmed production with estimated ship date: %s', 'vss' ),
+            date_i18n( get_option( 'date_format' ), strtotime( $estimated_ship_date ) )
         ) );
 
         $redirect_args['vss_notice'] = 'production_confirmed';
@@ -1699,7 +1727,7 @@ class VSS_Vendor {
         }
 
         $approval_type = $action === 'send_mockup_for_approval' ? 'mockup' : 'production_file';
-        
+
         // Handle file uploads
         $uploaded_files = [];
         if ( ! empty( $_FILES['approval_files']['name'][0] ) ) {
@@ -1738,8 +1766,8 @@ class VSS_Vendor {
         update_post_meta( $order->get_id(), '_vss_' . $approval_type . '_status', 'pending' );
         update_post_meta( $order->get_id(), '_vss_' . $approval_type . '_submitted_at', current_time( 'timestamp' ) );
 
-        $order->add_order_note( sprintf( 
-            __( 'Vendor submitted %s for customer approval. %d files uploaded.', 'vss' ), 
+        $order->add_order_note( sprintf(
+            __( 'Vendor submitted %s for customer approval. %d files uploaded.', 'vss' ),
             $approval_type === 'mockup' ? 'mockup' : 'production files',
             count( $uploaded_files )
         ) );
@@ -1770,8 +1798,8 @@ class VSS_Vendor {
         update_post_meta( $order->get_id(), '_vss_order_costs', $costs );
         update_post_meta( $order->get_id(), '_vss_costs_updated_at', current_time( 'timestamp' ) );
 
-        $order->add_order_note( sprintf( 
-            __( 'Vendor updated order costs. Total: %s', 'vss' ), 
+        $order->add_order_note( sprintf(
+            __( 'Vendor updated order costs. Total: %s', 'vss' ),
             wc_price( $costs['total_cost'] )
         ) );
 
@@ -1894,15 +1922,15 @@ class VSS_Vendor {
 
         <style>
         .vss-order-tabs { margin: 20px 0; border-bottom: 1px solid #ccd0d4; }
-        .nav-tab { 
-            display: inline-block; 
-            padding: 8px 12px; 
-            margin: 0 5px -1px 0; 
-            border: 1px solid #ccd0d4; 
-            border-bottom: none; 
-            background: #f1f1f1; 
-            text-decoration: none; 
-            color: #555; 
+        .nav-tab {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 0 5px -1px 0;
+            border: 1px solid #ccd0d4;
+            border-bottom: none;
+            background: #f1f1f1;
+            text-decoration: none;
+            color: #555;
         }
         .nav-tab-active, .nav-tab:hover { background: #fff; color: #000; }
         .vss-tab-content { display: none; padding: 20px 0; }
@@ -1914,10 +1942,10 @@ class VSS_Vendor {
             $('.nav-tab').on('click', function(e) {
                 e.preventDefault();
                 var target = $(this).attr('href');
-                
+
                 $('.nav-tab').removeClass('nav-tab-active');
                 $(this).addClass('nav-tab-active');
-                
+
                 $('.vss-tab-content').removeClass('vss-tab-active');
                 $(target).addClass('vss-tab-active');
             });
@@ -1970,20 +1998,20 @@ class VSS_Vendor {
         <div class="vss-production-confirmation-fe">
             <h3><?php esc_html_e( 'Confirm Production', 'vss' ); ?></h3>
             <p><?php esc_html_e( 'Please confirm that you can fulfill this order and provide an estimated ship date.', 'vss' ); ?></p>
-            
+
             <form method="post" class="vss-production-form">
                 <?php wp_nonce_field( 'vss_production_confirmation' ); ?>
                 <input type="hidden" name="vss_fe_action" value="vendor_confirm_production">
                 <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-                
+
                 <label for="estimated_ship_date"><?php esc_html_e( 'Estimated Ship Date:', 'vss' ); ?></label>
-                <input type="date" 
-                       name="estimated_ship_date" 
-                       id="estimated_ship_date" 
-                       value="<?php echo esc_attr( $ship_date ); ?>" 
-                       min="<?php echo esc_attr( date( 'Y-m-d' ) ); ?>" 
+                <input type="date"
+                       name="estimated_ship_date"
+                       id="estimated_ship_date"
+                       value="<?php echo esc_attr( $ship_date ); ?>"
+                       min="<?php echo esc_attr( date( 'Y-m-d' ) ); ?>"
                        required>
-                
+
                 <input type="submit" value="<?php esc_attr_e( 'Confirm Production', 'vss' ); ?>" class="button button-primary">
             </form>
         </div>
@@ -2075,7 +2103,7 @@ class VSS_Vendor {
                                         <?php esc_html_e( 'Download Files', 'vss' ); ?>
                                     </a>
                                 <?php elseif ( $zakeke_data ) : ?>
-                                    <button type="button" class="button button-small vss-fetch-zakeke" 
+                                    <button type="button" class="button button-small vss-fetch-zakeke"
                                             data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
                                             data-item-id="<?php echo esc_attr( $item_id ); ?>"
                                             data-design-id="<?php echo esc_attr( $zakeke_data['design_id'] ?? '' ); ?>">
@@ -2103,15 +2131,15 @@ class VSS_Vendor {
         ?>
         <div class="vss-approval-section">
             <h4><?php echo esc_html( $type_label ); ?> <?php esc_html_e( 'Approval', 'vss' ); ?></h4>
-            
+
             <?php if ( $files && $status ) : ?>
                 <div class="approval-status">
-                    <p><strong><?php esc_html_e( 'Status:', 'vss' ); ?></strong> 
+                    <p><strong><?php esc_html_e( 'Status:', 'vss' ); ?></strong>
                         <span class="status-<?php echo esc_attr( $status ); ?>">
                             <?php echo esc_html( ucfirst( $status ) ); ?>
                         </span>
                     </p>
-                    
+
                     <h5><?php esc_html_e( 'Submitted Files:', 'vss' ); ?></h5>
                     <ul class="approval-files">
                         <?php foreach ( $files as $file_url ) : ?>
@@ -2126,20 +2154,20 @@ class VSS_Vendor {
                     <?php wp_nonce_field( 'vss_approval_submission' ); ?>
                     <input type="hidden" name="vss_fe_action" value="send_<?php echo esc_attr( $type ); ?>_for_approval">
                     <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-                    
+
                     <label for="approval_files_<?php echo esc_attr( $type ); ?>">
                         <?php printf( __( 'Upload %s Files:', 'vss' ), $type_label ); ?>
                     </label>
-                    <input type="file" 
-                           name="approval_files[]" 
-                           id="approval_files_<?php echo esc_attr( $type ); ?>" 
-                           multiple 
-                           accept="image/*,.pdf" 
+                    <input type="file"
+                           name="approval_files[]"
+                           id="approval_files_<?php echo esc_attr( $type ); ?>"
+                           multiple
+                           accept="image/*,.pdf"
                            required>
                     <p class="description"><?php esc_html_e( 'Select multiple files (images or PDFs) to upload.', 'vss' ); ?></p>
-                    
-                    <input type="submit" 
-                           value="<?php printf( esc_attr__( 'Submit %s for Approval', 'vss' ), $type_label ); ?>" 
+
+                    <input type="submit"
+                           value="<?php printf( esc_attr__( 'Submit %s for Approval', 'vss' ), $type_label ); ?>"
                            class="button button-primary">
                 </form>
             <?php endif; ?>
@@ -2162,58 +2190,58 @@ class VSS_Vendor {
         ?>
         <div class="vss-costs-section">
             <h4><?php esc_html_e( 'Order Costs', 'vss' ); ?></h4>
-            
+
             <form method="post" class="vss-costs-form">
                 <?php wp_nonce_field( 'vss_save_costs' ); ?>
                 <input type="hidden" name="vss_fe_action" value="save_costs">
                 <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-                
+
                 <div class="costs-grid">
                     <div class="cost-item">
                         <label for="material_cost"><?php esc_html_e( 'Material Cost:', 'vss' ); ?></label>
-                        <input type="number" 
-                               name="material_cost" 
-                               id="material_cost" 
-                               value="<?php echo esc_attr( $costs['material_cost'] ); ?>" 
-                               step="0.01" 
+                        <input type="number"
+                               name="material_cost"
+                               id="material_cost"
+                               value="<?php echo esc_attr( $costs['material_cost'] ); ?>"
+                               step="0.01"
                                min="0">
                     </div>
-                    
+
                     <div class="cost-item">
                         <label for="labor_cost"><?php esc_html_e( 'Labor Cost:', 'vss' ); ?></label>
-                        <input type="number" 
-                               name="labor_cost" 
-                               id="labor_cost" 
-                               value="<?php echo esc_attr( $costs['labor_cost'] ); ?>" 
-                               step="0.01" 
+                        <input type="number"
+                               name="labor_cost"
+                               id="labor_cost"
+                               value="<?php echo esc_attr( $costs['labor_cost'] ); ?>"
+                               step="0.01"
                                min="0">
                     </div>
-                    
+
                     <div class="cost-item">
                         <label for="shipping_cost"><?php esc_html_e( 'Shipping Cost:', 'vss' ); ?></label>
-                        <input type="number" 
-                               name="shipping_cost" 
-                               id="shipping_cost" 
-                               value="<?php echo esc_attr( $costs['shipping_cost'] ); ?>" 
-                               step="0.01" 
+                        <input type="number"
+                               name="shipping_cost"
+                               id="shipping_cost"
+                               value="<?php echo esc_attr( $costs['shipping_cost'] ); ?>"
+                               step="0.01"
                                min="0">
                     </div>
-                    
+
                     <div class="cost-item">
                         <label for="other_cost"><?php esc_html_e( 'Other Cost:', 'vss' ); ?></label>
-                        <input type="number" 
-                               name="other_cost" 
-                               id="other_cost" 
-                               value="<?php echo esc_attr( $costs['other_cost'] ); ?>" 
-                               step="0.01" 
+                        <input type="number"
+                               name="other_cost"
+                               id="other_cost"
+                               value="<?php echo esc_attr( $costs['other_cost'] ); ?>"
+                               step="0.01"
                                min="0">
                     </div>
                 </div>
-                
+
                 <div class="total-cost">
                     <strong><?php esc_html_e( 'Total Cost:', 'vss' ); ?> <span id="total_display"><?php echo wc_price( $costs['total_cost'] ); ?></span></strong>
                 </div>
-                
+
                 <input type="submit" value="<?php esc_attr_e( 'Save Costs', 'vss' ); ?>" class="button button-primary">
             </form>
         </div>
@@ -2227,7 +2255,7 @@ class VSS_Vendor {
                 });
                 $('#total_display').text('<?php echo get_woocommerce_currency_symbol(); ?>' + total.toFixed(2));
             }
-            
+
             $('.cost-item input[type="number"]').on('input', updateTotal);
         });
         </script>
@@ -2244,7 +2272,7 @@ class VSS_Vendor {
         ?>
         <div class="vss-shipping-section">
             <h4><?php esc_html_e( 'Shipping Information', 'vss' ); ?></h4>
-            
+
             <?php if ( $tracking_number ) : ?>
                 <div class="tracking-info">
                     <p><strong><?php esc_html_e( 'Tracking Number:', 'vss' ); ?></strong> <?php echo esc_html( $tracking_number ); ?></p>
@@ -2262,17 +2290,17 @@ class VSS_Vendor {
                     <?php wp_nonce_field( 'vss_save_tracking' ); ?>
                     <input type="hidden" name="vss_fe_action" value="save_tracking">
                     <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-                    
+
                     <div class="tracking-fields">
                         <div class="field-group">
                             <label for="tracking_number"><?php esc_html_e( 'Tracking Number:', 'vss' ); ?></label>
-                            <input type="text" 
-                                   name="tracking_number" 
-                                   id="tracking_number" 
-                                   value="<?php echo esc_attr( $tracking_number ); ?>" 
+                            <input type="text"
+                                   name="tracking_number"
+                                   id="tracking_number"
+                                   value="<?php echo esc_attr( $tracking_number ); ?>"
                                    placeholder="<?php esc_attr_e( 'Enter tracking number', 'vss' ); ?>">
                         </div>
-                        
+
                         <div class="field-group">
                             <label for="tracking_carrier"><?php esc_html_e( 'Carrier:', 'vss' ); ?></label>
                             <select name="tracking_carrier" id="tracking_carrier">
@@ -2285,7 +2313,7 @@ class VSS_Vendor {
                             </select>
                         </div>
                     </div>
-                    
+
                     <input type="submit" value="<?php esc_attr_e( 'Save Tracking & Mark as Shipped', 'vss' ); ?>" class="button button-primary">
                 </form>
             <?php endif; ?>
@@ -2301,7 +2329,7 @@ class VSS_Vendor {
         ?>
         <div class="vss-notes-section">
             <h4><?php esc_html_e( 'Order Notes', 'vss' ); ?></h4>
-            
+
             <?php if ( $notes ) : ?>
                 <div class="order-notes">
                     <?php foreach ( $notes as $note ) : ?>
@@ -2320,13 +2348,13 @@ class VSS_Vendor {
                 <?php wp_nonce_field( 'vss_add_note' ); ?>
                 <input type="hidden" name="vss_fe_action" value="add_note">
                 <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-                
+
                 <label for="vendor_note"><?php esc_html_e( 'Add Note:', 'vss' ); ?></label>
-                <textarea name="vendor_note" 
-                          id="vendor_note" 
-                          rows="4" 
+                <textarea name="vendor_note"
+                          id="vendor_note"
+                          rows="4"
                           placeholder="<?php esc_attr_e( 'Add a note about this order...', 'vss' ); ?>"></textarea>
-                
+
                 <input type="submit" value="<?php esc_attr_e( 'Add Note', 'vss' ); ?>" class="button">
             </form>
         </div>
@@ -2340,7 +2368,7 @@ class VSS_Vendor {
         ?>
         <div class="vss-files-section">
             <h4><?php esc_html_e( 'Order Files', 'vss' ); ?></h4>
-            
+
             <div class="files-grid">
                 <div class="file-category">
                     <h5><?php esc_html_e( 'Design Files', 'vss' ); ?></h5>
@@ -2353,7 +2381,7 @@ class VSS_Vendor {
                         <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
-                
+
                 <div class="file-category">
                     <h5><?php esc_html_e( 'Mockup Files', 'vss' ); ?></h5>
                     <?php
@@ -2362,14 +2390,14 @@ class VSS_Vendor {
                         foreach ( $mockup_files as $file_url ) :
                     ?>
                         <p><a href="<?php echo esc_url( $file_url ); ?>" target="_blank"><?php echo esc_html( basename( $file_url ) ); ?></a></p>
-                    <?php 
+                    <?php
                         endforeach;
                     else :
                     ?>
                         <p class="no-files"><?php esc_html_e( 'No mockup files uploaded yet.', 'vss' ); ?></p>
                     <?php endif; ?>
                 </div>
-                
+
                 <div class="file-category">
                     <h5><?php esc_html_e( 'Production Files', 'vss' ); ?></h5>
                     <?php
@@ -2378,7 +2406,7 @@ class VSS_Vendor {
                         foreach ( $production_files as $file_url ) :
                     ?>
                         <p><a href="<?php echo esc_url( $file_url ); ?>" target="_blank"><?php echo esc_html( basename( $file_url ) ); ?></a></p>
-                    <?php 
+                    <?php
                         endforeach;
                     else :
                     ?>
@@ -2427,20 +2455,20 @@ class VSS_Vendor {
             <tr>
                 <th><label for="vss_company_name"><?php esc_html_e( 'Company Name', 'vss' ); ?></label></th>
                 <td>
-                    <input type="text" 
-                           name="vss_company_name" 
-                           id="vss_company_name" 
-                           value="<?php echo esc_attr( get_user_meta( $user->ID, 'vss_company_name', true ) ); ?>" 
+                    <input type="text"
+                           name="vss_company_name"
+                           id="vss_company_name"
+                           value="<?php echo esc_attr( get_user_meta( $user->ID, 'vss_company_name', true ) ); ?>"
                            class="regular-text" />
                 </td>
             </tr>
             <tr>
                 <th><label for="vss_payment_email"><?php esc_html_e( 'Payment Email', 'vss' ); ?></label></th>
                 <td>
-                    <input type="email" 
-                           name="vss_payment_email" 
-                           id="vss_payment_email" 
-                           value="<?php echo esc_attr( get_user_meta( $user->ID, 'vss_payment_email', true ) ); ?>" 
+                    <input type="email"
+                           name="vss_payment_email"
+                           id="vss_payment_email"
+                           value="<?php echo esc_attr( get_user_meta( $user->ID, 'vss_payment_email', true ) ); ?>"
                            class="regular-text" />
                     <p class="description"><?php esc_html_e( 'Email address for receiving payment notifications.', 'vss' ); ?></p>
                 </td>
@@ -2448,12 +2476,12 @@ class VSS_Vendor {
             <tr>
                 <th><label for="vss_default_production_time"><?php esc_html_e( 'Default Production Time', 'vss' ); ?></label></th>
                 <td>
-                    <input type="number" 
-                           name="vss_default_production_time" 
-                           id="vss_default_production_time" 
-                           value="<?php echo esc_attr( get_user_meta( $user->ID, 'vss_default_production_time', true ) ); ?>" 
-                           min="1" 
-                           max="30" 
+                    <input type="number"
+                           name="vss_default_production_time"
+                           id="vss_default_production_time"
+                           value="<?php echo esc_attr( get_user_meta( $user->ID, 'vss_default_production_time', true ) ); ?>"
+                           min="1"
+                           max="30"
                            class="small-text" />
                     <?php esc_html_e( 'days', 'vss' ); ?>
                 </td>
@@ -2515,17 +2543,17 @@ function vss_optimize_vendor_order_query( $query, $query_vars ) {
  */
 function vss_force_meta_index( $clauses, $wp_query ) {
     global $wpdb;
-    
+
     // Add index hint for meta queries
-    $clauses['join'] = str_replace( 
-        "INNER JOIN {$wpdb->postmeta}", 
-        "INNER JOIN {$wpdb->postmeta} USE INDEX (meta_key)", 
-        $clauses['join'] 
+    $clauses['join'] = str_replace(
+        "INNER JOIN {$wpdb->postmeta}",
+        "INNER JOIN {$wpdb->postmeta} USE INDEX (meta_key)",
+        $clauses['join']
     );
-    
+
     // Remove this filter after use to avoid affecting other queries
     remove_filter( 'posts_clauses', 'vss_force_meta_index', 10, 2 );
-    
+
     return $clauses;
 }
 
@@ -2550,39 +2578,39 @@ function vss_vendor_orders_custom_css() {
                 font-weight: 500;
                 padding: 0 1em;
             }
-            
+
             .vss-vendor-orders-table .order-status.status-processing {
                 background: #f8dda7;
                 color: #94660c;
             }
-            
+
             .vss-vendor-orders-table .order-status.status-shipped {
                 background: #c8e6c9;
                 color: #2e7d32;
             }
-            
+
             .vss-vendor-orders-table .order-status.status-completed {
                 background: #d4edda;
                 color: #155724;
             }
-            
+
             .vss-vendor-orders-table .order-status.status-pending {
                 background: #ccc;
                 color: #666;
             }
-            
+
             /* Hover effects */
             .vss-vendor-orders-table tbody tr:hover {
                 transform: scale(1.01);
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 transition: all 0.2s ease-in-out;
             }
-            
+
             /* Make processing orders stand out more */
             .vss-vendor-orders-table tbody tr.status-processing {
                 position: relative;
             }
-            
+
             .vss-vendor-orders-table tbody tr.status-processing::before {
                 content: '';
                 position: absolute;
@@ -2592,12 +2620,12 @@ function vss_vendor_orders_custom_css() {
                 width: 4px;
                 background: #ff9800;
             }
-            
+
             /* Late orders alert */
             .vss-vendor-orders-table tbody tr.status-late {
                 position: relative;
             }
-            
+
             .vss-vendor-orders-table tbody tr.status-late::before {
                 content: '';
                 position: absolute;
@@ -2607,7 +2635,7 @@ function vss_vendor_orders_custom_css() {
                 width: 4px;
                 background: #f44336;
             }
-            
+
             /* Better search box */
             .search-box input[type="search"] {
                 padding: 8px 12px;
@@ -2616,29 +2644,29 @@ function vss_vendor_orders_custom_css() {
                 border-radius: 4px;
                 transition: all 0.3s;
             }
-            
+
             .search-box input[type="search"]:focus {
                 border-color: #2271b1;
                 box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
             }
-            
+
             /* Status filter enhancement */
             .subsubsub li a {
                 padding: 5px 10px;
                 border-radius: 3px;
                 transition: all 0.2s;
             }
-            
+
             .subsubsub li a:hover {
                 background: #f0f0f0;
             }
-            
+
             .subsubsub li a.current {
                 background: #2271b1;
                 color: white;
                 font-weight: 600;
             }
-            
+
             /* Pagination improvements */
             .tablenav-pages a, .tablenav-pages span.current {
                 display: inline-block;
@@ -2649,13 +2677,13 @@ function vss_vendor_orders_custom_css() {
                 text-decoration: none;
                 transition: all 0.2s;
             }
-            
+
             .tablenav-pages a:hover {
                 background: #2271b1;
                 color: white;
                 border-color: #2271b1;
             }
-            
+
             .tablenav-pages span.current {
                 background: #555;
                 color: white;
@@ -2682,32 +2710,32 @@ function vss_vendor_orders_keyboard_shortcuts() {
                     e.preventDefault();
                     $('.next-page:not(.disabled)').click();
                 }
-                
+
                 // Alt + P = Previous page
                 if (e.altKey && e.keyCode === 80) {
                     e.preventDefault();
                     $('.prev-page:not(.disabled)').click();
                 }
-                
+
                 // Alt + S = Focus search
                 if (e.altKey && e.keyCode === 83) {
                     e.preventDefault();
                     $('#order-search-input').focus();
                 }
-                
+
                 // Alt + A = Select all
                 if (e.altKey && e.keyCode === 65) {
                     e.preventDefault();
                     $('#cb-select-all-1').click();
                 }
             });
-            
+
             // Add tooltips
             $('.next-page').attr('title', 'Next Page (Alt+N)');
             $('.prev-page').attr('title', 'Previous Page (Alt+P)');
             $('#order-search-input').attr('title', 'Search Orders (Alt+S)');
             $('#cb-select-all-1').attr('title', 'Select All (Alt+A)');
-            
+
             // Auto-refresh every 5 minutes for processing orders
             if ($('tr.status-processing').length > 0) {
                 setTimeout(function() {
@@ -2728,21 +2756,21 @@ function vss_vendor_orders_keyboard_shortcuts() {
  */
 function vss_create_vendor_order_indexes() {
     global $wpdb;
-    
+
     // Check if index already exists
     $index_exists = $wpdb->get_var("
-        SELECT COUNT(1) 
-        FROM INFORMATION_SCHEMA.STATISTICS 
-        WHERE table_schema = DATABASE() 
-        AND table_name = '{$wpdb->postmeta}' 
+        SELECT COUNT(1)
+        FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE table_schema = DATABASE()
+        AND table_name = '{$wpdb->postmeta}'
         AND index_name = 'vss_vendor_lookup'
     ");
-    
+
     if ( ! $index_exists ) {
         // Create composite index for vendor queries
         // Indexing the first 10 characters of meta_value is usually sufficient for user IDs.
         $wpdb->query("
-            CREATE INDEX vss_vendor_lookup 
+            CREATE INDEX vss_vendor_lookup
             ON {$wpdb->postmeta} (meta_key, meta_value(10))
         ");
     }
@@ -2752,4 +2780,3 @@ function vss_create_vendor_order_indexes() {
 if ( defined( 'VSS_PLUGIN_FILE' ) ) {
     register_activation_hook( VSS_PLUGIN_FILE, 'vss_create_vendor_order_indexes' );
 }
-
