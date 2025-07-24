@@ -2201,116 +2201,42 @@ class VSS_Vendor {
         </div>
 
         <style>
-        .vss-order-tabs { margin: 20px 0; border-bottom: 1px solid #ccd0d4; }
-        .nav-tab {
-            display: inline-block;
-            padding: 8px 12px;
-            margin: 0 5px -1px 0;
-            border: 1px solid #ccd0d4;
-            border-bottom: none;
-            background: #f1f1f1;
-            text-decoration: none;
-            color: #555;
-            cursor: pointer;
-        }
-        .nav-tab-active, .nav-tab:hover { background: #fff; color: #000; }
-        .vss-tab-content { display: none; padding: 20px 0; }
-        .vss-tab-active { display: block; }
-        </style>
-
-        <script type="text/javascript">
-        console.log('Script tag reached');
-
-        // Check if jQuery is loaded
-        if (typeof jQuery === 'undefined') {
-            console.error('jQuery is not loaded!');
-        } else {
-            console.log('jQuery is loaded, version:', jQuery.fn.jquery);
-        }
-
-        // Try multiple ways to ensure the script runs
-        (function($) {
-            console.log('IIFE executed');
-
-            // Method 1: Document ready
-            $(document).ready(function() {
-                console.log('Document ready fired');
-                initializeTabs();
-            });
-
-            // Method 2: Window load (as fallback)
-            $(window).on('load', function() {
-                console.log('Window load fired');
-                initializeTabs();
-            });
-
-            // Method 3: Direct execution with timeout (last resort)
-            setTimeout(function() {
-                console.log('Timeout fired');
-                initializeTabs();
-            }, 1000);
-
-            function initializeTabs() {
-                console.log('initializeTabs called');
-
-                // Check if elements exist
-                var tabs = $('.vss-order-tabs .nav-tab');
-                var contents = $('.vss-tab-content');
-
-                console.log('Tabs found:', tabs.length);
-                console.log('Tab contents found:', contents.length);
-
-                if (tabs.length === 0) {
-                    console.error('No tabs found! Looking for all .nav-tab elements:', $('.nav-tab').length);
-                    console.error('HTML structure:', $('.vss-order-tabs').html());
-                    return;
-                }
-
-                // Remove any existing click handlers
-                tabs.off('click');
-
-                // Tab switching functionality
-                tabs.on('click', function(e) {
-                    console.log('Tab clicked!');
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    var $this = $(this);
-                    var href = $this.attr('href');
-                    console.log('Clicked tab href:', href);
-
-                    if (!href) {
-                        console.error('No href found on clicked tab');
-                        return false;
-                    }
-
-                    var targetId = href.replace('#', '');
-                    var $target = $('#' + targetId);
-
-                    console.log('Target ID:', targetId);
-                    console.log('Target found:', $target.length > 0);
-
-                    // Update active states
-                    tabs.removeClass('nav-tab-active');
-                    $this.addClass('nav-tab-active');
-
-                    // Hide all contents and show target
-                    contents.hide().removeClass('vss-tab-active');
-                    $target.show().addClass('vss-tab-active');
-
-                    console.log('Tab switch complete');
-                    return false;
-                });
-
-                // Initialize first tab
-                contents.hide();
-                contents.first().show().addClass('vss-tab-active');
-                tabs.first().addClass('nav-tab-active');
-                console.log('First tab initialized');
+            .vss-order-tabs {
+                margin: 20px 0;
+                border-bottom: 1px solid #ccd0d4;
+                display: flex;
+                flex-wrap: wrap;
             }
-
-        })(jQuery || window.jQuery || window.$);
-        </script>
+            .vss-order-tabs .nav-tab {
+                display: inline-block;
+                padding: 10px 20px;
+                margin: 0 5px -1px 0;
+                border: 1px solid #ccd0d4;
+                border-bottom: 1px solid #ccd0d4;
+                background: #f1f1f1;
+                text-decoration: none;
+                color: #555;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            .vss-order-tabs .nav-tab:hover {
+                background: #fff;
+                color: #000;
+            }
+            .vss-order-tabs .nav-tab.nav-tab-active {
+                background: #fff;
+                color: #000;
+                border-bottom: 1px solid #fff;
+                font-weight: 600;
+            }
+            .vss-tab-content {
+                display: none;
+                padding: 20px 0;
+            }
+            .vss-tab-content.vss-tab-active {
+                display: block;
+            }
+        </style>
         <?php
     }
 

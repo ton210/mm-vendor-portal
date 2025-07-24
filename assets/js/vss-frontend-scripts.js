@@ -10,90 +10,52 @@ jQuery(document).ready(function($) {
     function initializeTabs() {
         console.log('initializeTabs called');
 
-        // Handle both .vss-order-tabs and any other tab containers
-        var $tabContainers = $('.vss-order-tabs');
+        // Handle order detail tabs specifically
+        var $orderTabs = $('.vss-order-tabs');
 
-        if ($tabContainers.length === 0) {
-            console.log('No tab containers found');
-            return;
-        }
+        if ($orderTabs.length > 0) {
+            console.log('Order tabs found');
 
-        $tabContainers.each(function() {
-            var $container = $(this);
-            var $tabs = $container.find('a.nav-tab');
+            // Remove any existing handlers first
+            $orderTabs.find('a.nav-tab').off('click.vss');
 
-            console.log('Found ' + $tabs.length + ' tabs in container');
-
-            // Remove any existing handlers
-            $tabs.off('click.vss');
-
-            // Add click handler
-            $tabs.on('click.vss', function(e) {
+            // Add click handler for order tabs
+            $orderTabs.find('a.nav-tab').on('click.vss', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
 
-                console.log('Tab clicked');
+                var $tab = $(this);
+                var targetId = $tab.attr('href').replace('#', '');
+                console.log('Tab clicked, target:', targetId);
 
-                var $this = $(this);
-                var href = $this.attr('href');
+                // Update active tab
+                $orderTabs.find('a.nav-tab').removeClass('nav-tab-active');
+                $tab.addClass('nav-tab-active');
 
-                if (!href || href === '#') {
-                    console.error('No valid href on tab');
-                    return false;
-                }
+                // Hide all tab contents
+                $('.vss-tab-content').removeClass('vss-tab-active').hide();
 
-                var targetId = href.replace('#', '');
-                var $target = $('#' + targetId);
+                // Show target content
+                $('#' + targetId).addClass('vss-tab-active').show();
 
-                console.log('Target ID:', targetId, 'Target found:', $target.length);
-
-                if ($target.length === 0) {
-                    console.error('Target tab content not found:', targetId);
-                    return false;
-                }
-
-                // Update active states
-                $tabs.removeClass('nav-tab-active');
-                $this.addClass('nav-tab-active');
-
-                // Hide all tab contents and show target
-                $('.vss-tab-content').hide().removeClass('vss-tab-active');
-                $target.show().addClass('vss-tab-active');
-
-                // Save active tab preference
-                if (typeof(Storage) !== "undefined") {
-                    localStorage.setItem("vssActiveOrderTab", href);
-                }
-
-                // Update URL hash without scrolling
+                // Update URL hash without jumping
                 if (history.replaceState) {
-                    history.replaceState(null, null, href);
+                    history.replaceState(null, null, $tab.attr('href'));
                 }
 
-                console.log('Tab switch complete');
                 return false;
             });
-        });
 
-        // Initialize active tab
-        var activeTab = null;
-
-        // Check URL hash first
-        if (window.location.hash && $(window.location.hash).length) {
-            activeTab = window.location.hash;
-        }
-        // Then check localStorage
-        else if (typeof(Storage) !== "undefined") {
-            activeTab = localStorage.getItem("vssActiveOrderTab");
-        }
-
-        if (activeTab && $('.vss-order-tabs a[href="' + activeTab + '"]').length) {
-            $('.vss-order-tabs a[href="' + activeTab + '"]').trigger('click.vss');
-        } else {
-            // Show first tab by default
-            $('.vss-tab-content').hide();
-            $('.vss-tab-content:first').show().addClass('vss-tab-active');
-            $('.vss-order-tabs .nav-tab:first').addClass('nav-tab-active');
+            // Check for hash in URL and activate corresponding tab
+            var hash = window.location.hash;
+            if (hash && $(hash).length) {
+                $orderTabs.find('a[href="' + hash + '"]').trigger('click.vss');
+            } else {
+                // Show first tab by default
+                $('.vss-tab-content').hide();
+                $('.vss-tab-content:first').show().addClass('vss-tab-active');
+                $orderTabs.find('a.nav-tab:first').addClass('nav-tab-active');
+            }
         }
     }
 
