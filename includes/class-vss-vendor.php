@@ -363,7 +363,6 @@ class VSS_Vendor {
 
         <h2><?php esc_html_e( 'My Orders', 'vss' ); ?></h2>
 
-        <!-- Status filters -->
         <ul class="vss-status-filters">
             <li>
                 <a href="<?php echo esc_url( remove_query_arg( [ 'status', 'paged' ] ) ); ?>"
@@ -395,7 +394,6 @@ class VSS_Vendor {
             ?>
         </ul>
 
-        <!-- Search form -->
         <form method="get" class="vss-search-form">
             <input type="hidden" name="vss_action" value="orders">
             <?php if ( $status_filter !== 'all' ) : ?>
@@ -406,7 +404,6 @@ class VSS_Vendor {
             <button type="submit"><?php esc_html_e( 'Search', 'vss' ); ?></button>
         </form>
 
-        <!-- Orders table -->
         <table class="vss-orders-table">
             <thead>
                 <tr>
@@ -432,7 +429,6 @@ class VSS_Vendor {
             </tbody>
         </table>
 
-        <!-- Pagination -->
         <?php if ( $total_pages > 1 ) : ?>
             <div class="vss-pagination">
                 <?php
@@ -2144,8 +2140,11 @@ class VSS_Vendor {
     }
 
     /**
-     * Render frontend order details - FIXED VERSION
-     * This method replaces the existing one in class-vss-vendor.php
+     * Render frontend order details - FIXED SINGLE PAGE VERSION
+     * This replaces the tab-based layout with a single-page sectioned layout
+     *
+     * Add this to your class-vss-vendor.php file, replacing the existing
+     * render_frontend_order_details method
      */
     private static function render_frontend_order_details( $order_id ) {
         $order = wc_get_order( $order_id );
@@ -2158,183 +2157,520 @@ class VSS_Vendor {
 
         $portal_url = get_permalink();
         ?>
-        <div class="vss-order-details-wrapper">
+        <div class="vss-order-details-wrapper vss-single-page-layout">
             <div class="vss-order-header">
                 <h2><?php printf( __( 'Order #%s Details', 'vss' ), esc_html( $order->get_order_number() ) ); ?></h2>
                 <p><a href="<?php echo esc_url( $portal_url ); ?>" class="button button-secondary">&larr; <?php esc_html_e( 'Back to Dashboard', 'vss' ); ?></a></p>
             </div>
 
-            <?php self::render_order_status_bar( $order ); ?>
-            <?php self::render_vendor_production_confirmation_section( $order ); ?>
+            <?php
+            // Order status bar
+            self::render_order_status_bar( $order );
 
-            <!-- Tab Navigation -->
-            <div class="vss-order-tabs" id="vss-order-tabs-<?php echo esc_attr( $order_id ); ?>">
-                <a class="nav-tab nav-tab-active" href="#tab-overview"><?php esc_html_e( 'Overview', 'vss' ); ?></a>
-                <a class="nav-tab" href="#tab-products"><?php esc_html_e( 'Products', 'vss' ); ?></a>
-                <a class="nav-tab" href="#tab-mockup"><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></a>
-                <a class="nav-tab" href="#tab-production"><?php esc_html_e( 'Production Files', 'vss' ); ?></a>
-                <a class="nav-tab" href="#tab-costs"><?php esc_html_e( 'Costs', 'vss' ); ?></a>
-                <a class="nav-tab" href="#tab-shipping"><?php esc_html_e( 'Shipping', 'vss' ); ?></a>
-                <a class="nav-tab" href="#tab-notes"><?php esc_html_e( 'Notes', 'vss' ); ?></a>
-                <a class="nav-tab" href="#tab-files"><?php esc_html_e( 'Files', 'vss' ); ?></a>
-            </div>
+            // Production confirmation section
+            self::render_vendor_production_confirmation_section( $order );
+            ?>
 
-            <!-- Tab Contents -->
-            <div id="tab-overview" class="vss-tab-content vss-tab-active" data-tab="overview">
-                <?php self::render_order_overview( $order ); ?>
-            </div>
+            <div class="vss-order-sections">
 
-            <div id="tab-products" class="vss-tab-content" data-tab="products">
-                <?php self::render_order_products( $order ); ?>
-            </div>
+                <div class="vss-order-section" id="section-overview">
+                    <div class="vss-section-header">
+                        <h3><?php esc_html_e( 'Order Overview', 'vss' ); ?></h3>
+                    </div>
+                    <div class="vss-section-content">
+                        <?php self::render_order_overview( $order ); ?>
+                    </div>
+                </div>
 
-            <div id="tab-mockup" class="vss-tab-content" data-tab="mockup">
-                <?php self::render_approval_section( $order, 'mockup' ); ?>
-            </div>
+                <div class="vss-order-section" id="section-products">
+                    <div class="vss-section-header">
+                        <h3><?php esc_html_e( 'Products & Design Files', 'vss' ); ?></h3>
+                    </div>
+                    <div class="vss-section-content">
+                        <?php self::render_order_products( $order ); ?>
+                    </div>
+                </div>
 
-            <div id="tab-production" class="vss-tab-content" data-tab="production">
-                <?php self::render_approval_section( $order, 'production_file' ); ?>
-            </div>
+                <div class="vss-order-section vss-two-column">
+                    <div class="vss-column" id="section-mockup">
+                        <div class="vss-section-header">
+                            <h3><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></h3>
+                        </div>
+                        <div class="vss-section-content">
+                            <?php self::render_approval_section( $order, 'mockup' ); ?>
+                        </div>
+                    </div>
 
-            <div id="tab-costs" class="vss-tab-content" data-tab="costs">
-                <?php self::render_costs_section( $order ); ?>
-            </div>
+                    <div class="vss-column" id="section-production">
+                        <div class="vss-section-header">
+                            <h3><?php esc_html_e( 'Production Files', 'vss' ); ?></h3>
+                        </div>
+                        <div class="vss-section-content">
+                            <?php self::render_approval_section( $order, 'production_file' ); ?>
+                        </div>
+                    </div>
+                </div>
 
-            <div id="tab-shipping" class="vss-tab-content" data-tab="shipping">
-                <?php self::render_shipping_section( $order ); ?>
-            </div>
+                <div class="vss-order-section vss-two-column">
+                    <div class="vss-column" id="section-costs">
+                        <div class="vss-section-header">
+                            <h3><?php esc_html_e( 'Order Costs', 'vss' ); ?></h3>
+                        </div>
+                        <div class="vss-section-content">
+                            <?php self::render_costs_section( $order ); ?>
+                        </div>
+                    </div>
 
-            <div id="tab-notes" class="vss-tab-content" data-tab="notes">
-                <?php self::render_notes_section( $order ); ?>
-            </div>
+                    <div class="vss-column" id="section-shipping">
+                        <div class="vss-section-header">
+                            <h3><?php esc_html_e( 'Shipping Information', 'vss' ); ?></h3>
+                        </div>
+                        <div class="vss-section-content">
+                            <?php self::render_shipping_section( $order ); ?>
+                        </div>
+                    </div>
+                </div>
 
-            <div id="tab-files" class="vss-tab-content" data-tab="files">
-                <?php self::render_files_section( $order ); ?>
+                <div class="vss-order-section" id="section-notes">
+                    <div class="vss-section-header">
+                        <h3><?php esc_html_e( 'Order Notes & Communication', 'vss' ); ?></h3>
+                    </div>
+                    <div class="vss-section-content">
+                        <?php self::render_notes_section( $order ); ?>
+                    </div>
+                </div>
+
+                <div class="vss-order-section" id="section-files">
+                    <div class="vss-section-header">
+                        <h3><?php esc_html_e( 'All Order Files', 'vss' ); ?></h3>
+                    </div>
+                    <div class="vss-section-content">
+                        <?php self::render_files_section( $order ); ?>
+                    </div>
+                </div>
+
+                <div class="vss-order-section vss-quick-actions-section">
+                    <div class="vss-section-header">
+                        <h3><?php esc_html_e( 'Quick Actions', 'vss' ); ?></h3>
+                    </div>
+                    <div class="vss-section-content">
+                        <div class="vss-action-buttons">
+                            <?php if ( $order->has_status( 'processing' ) ) : ?>
+                                <a href="#section-shipping" class="button button-primary vss-smooth-scroll">
+                                    <?php esc_html_e( 'Add Tracking Info', 'vss' ); ?>
+                                </a>
+                                <a href="#section-costs" class="button vss-smooth-scroll">
+                                    <?php esc_html_e( 'Update Costs', 'vss' ); ?>
+                                </a>
+                                <a href="#section-mockup" class="button vss-smooth-scroll">
+                                    <?php esc_html_e( 'Upload Mockup', 'vss' ); ?>
+                                </a>
+                            <?php endif; ?>
+                            <a href="#section-notes" class="button vss-smooth-scroll">
+                                <?php esc_html_e( 'Add Note', 'vss' ); ?>
+                            </a>
+                            <button type="button" class="button" onclick="window.print();">
+                                <?php esc_html_e( 'Print Order', 'vss' ); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Inline Tab Script - This ensures tabs work even if main script fails -->
         <script>
-        // VSS Tab System - Inline Fallback
-        (function($) {
-            'use strict';
-
-            function initOrderTabs() {
-                console.log('VSS: Initializing order tabs inline');
-
-                var $container = $('#vss-order-tabs-<?php echo esc_js( $order_id ); ?>');
-                var $tabs = $container.find('.nav-tab');
-                var $contents = $container.siblings('.vss-tab-content');
-
-                // Hide all tab contents except active
-                $contents.not('.vss-tab-active').hide();
-
-                // Ensure active tab content is visible
-                $('.vss-tab-content.vss-tab-active').show();
-
-                // Handle tab clicks
-                $tabs.off('click.inline').on('click.inline', function(e) {
+        jQuery(document).ready(function($) {
+            // Smooth scrolling for anchor links
+            $('.vss-smooth-scroll').on('click', function(e) {
+                if (this.hash !== '') {
                     e.preventDefault();
-                    e.stopPropagation();
+                    var hash = this.hash;
+                    var target = $(hash);
 
-                    var $tab = $(this);
-                    var target = $tab.attr('href');
-
-                    console.log('VSS: Tab clicked (inline):', target);
-
-                    if (!target || target === '#') return false;
-
-                    // Update active states
-                    $tabs.removeClass('nav-tab-active');
-                    $tab.addClass('nav-tab-active');
-
-                    // Show/hide content
-                    $contents.hide().removeClass('vss-tab-active');
-                    $(target).show().addClass('vss-tab-active');
-
-                    // Update URL without jumping
-                    if (history.replaceState) {
-                        history.replaceState(null, null, target);
-                    }
-
-                    return false;
-                });
-
-                // Handle direct hash links
-                if (window.location.hash) {
-                    var $hashTab = $tabs.filter('[href="' + window.location.hash + '"]');
-                    if ($hashTab.length) {
-                        $hashTab.trigger('click.inline');
+                    if (target.length) {
+                        $('html, body').animate({
+                            scrollTop: target.offset().top - 100
+                        }, 800);
                     }
                 }
-
-                // Ensure we have at least one visible tab
-                if ($contents.filter(':visible').length === 0) {
-                    console.log('VSS: No visible tabs, showing first tab');
-                    $tabs.first().trigger('click.inline');
-                }
-            }
-
-            // Initialize immediately if jQuery is ready
-            if ($ && $.fn && $.fn.ready) {
-                $(document).ready(function() {
-                    console.log('VSS: Document ready (inline)');
-                    initOrderTabs();
-                });
-            }
-
-            // Also try on window load
-            $(window).on('load', function() {
-                console.log('VSS: Window loaded (inline)');
-                // Give main script a chance to work first
-                setTimeout(function() {
-                    // Check if tabs are working
-                    if ($('.vss-tab-content:visible').length === 0) {
-                        console.log('VSS: Reinitializing tabs on window load');
-                        initOrderTabs();
-                    }
-                }, 500);
             });
 
-        })(jQuery);
+            // Highlight active section while scrolling
+            $(window).on('scroll', function() {
+                var scrollPos = $(document).scrollTop();
+
+                $('.vss-order-section').each(function() {
+                    var currSection = $(this);
+                    var currSectionTop = currSection.offset().top - 150;
+                    var currSectionBottom = currSectionTop + currSection.outerHeight();
+
+                    if (scrollPos >= currSectionTop && scrollPos < currSectionBottom) {
+                        currSection.addClass('vss-active-section');
+                    } else {
+                        currSection.removeClass('vss-active-section');
+                    }
+                });
+            });
+
+            // Handle Zakeke file fetching (keeping existing functionality)
+            $('.vss-manual-fetch-zakeke-zip').on('click', function() {
+                var $button = $(this);
+                var originalText = $button.text();
+
+                $button.prop('disabled', true).text('<?php esc_js_e( 'Fetching...', 'vss' ); ?>');
+
+                $.ajax({
+                    url: vss_frontend_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'vss_manual_fetch_zip',
+                        order_id: $button.data('order-id'),
+                        item_id: $button.data('item-id'),
+                        primary_zakeke_design_id: $button.data('zakeke-design-id'),
+                        _ajax_nonce: vss_frontend_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            var downloadLink = '<a href="' + response.data.zip_url + '" class="button button-small" target="_blank"><?php esc_js_e( 'Download Zakeke Files', 'vss' ); ?></a>';
+                            $button.replaceWith(downloadLink);
+                        } else {
+                            alert(response.data.message || '<?php esc_js_e( 'Failed to fetch files. Please try again.', 'vss' ); ?>');
+                            $button.prop('disabled', false).text(originalText);
+                        }
+                    },
+                    error: function() {
+                        alert('<?php esc_js_e( 'An error occurred. Please try again.', 'vss' ); ?>');
+                        $button.prop('disabled', false).text(originalText);
+                    }
+                });
+            });
+
+            // Auto-expand sections with forms when there are errors
+            <?php if ( isset( $_GET['vss_error'] ) ) : ?>
+            var errorType = '<?php echo esc_js( $_GET['vss_error'] ); ?>';
+            var targetSection = '';
+
+            switch(errorType) {
+                case 'date_required':
+                case 'date_format':
+                    targetSection = '.vss-production-confirmation-fe';
+                    break;
+                case 'no_files_uploaded':
+                    targetSection = '#section-mockup';
+                    break;
+            }
+
+            if (targetSection && $(targetSection).length) {
+                $('html, body').animate({
+                    scrollTop: $(targetSection).offset().top - 100
+                }, 500);
+            }
+            <?php endif; ?>
+        });
         </script>
 
         <style>
-        /* Inline styles to ensure tabs work */
-        .vss-order-tabs {
-            margin: 20px 0;
-            border-bottom: 1px solid #ccd0d4;
+        /* Single Page Layout Styles */
+        .vss-single-page-layout {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .vss-order-sections {
+            margin-top: 30px;
+        }
+
+        .vss-order-section {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .vss-order-section:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .vss-order-section.vss-active-section {
+            border-color: #2271b1;
+            box-shadow: 0 0 0 2px rgba(34, 113, 177, 0.1);
+        }
+
+        .vss-section-header {
+            background: #f9fafb;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .vss-section-header h3 {
+            margin: 0;
+            font-size: 1.25em;
+            color: #1f2937;
+        }
+
+        .vss-section-content {
+            padding: 30px;
+        }
+
+        /* Two Column Layout */
+        .vss-two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            padding: 0;
+            background: transparent;
+            border: none;
+        }
+
+        .vss-two-column .vss-column {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .vss-two-column .vss-column:first-child {
+            margin-right: 15px;
+        }
+
+        .vss-two-column .vss-column:last-child {
+            margin-left: 15px;
+        }
+
+        /* Overview Grid */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .overview-section {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .overview-section h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #374151;
+            font-size: 1.1em;
+        }
+
+        .overview-section p {
+            margin: 8px 0;
+            color: #4b5563;
+        }
+
+        /* Quick Actions Section */
+        .vss-quick-actions-section {
+            background: #f0f7ff;
+            border-color: #2271b1;
+        }
+
+        .vss-quick-actions-section .vss-section-header {
+            background: #e0efff;
+        }
+
+        .vss-quick-actions-section .vss-action-buttons {
             display: flex;
+            gap: 15px;
             flex-wrap: wrap;
         }
-        .vss-order-tabs .nav-tab {
-            display: inline-block;
-            padding: 10px 20px;
-            margin: 0 5px -1px 0;
-            border: 1px solid #ccd0d4;
-            border-bottom: 1px solid #ccd0d4;
-            background: #f1f1f1;
-            text-decoration: none;
-            color: #555;
-            cursor: pointer;
-            transition: all 0.2s ease;
+
+        /* Table Styles */
+        .vss-items-table,
+        .vss-costs-form table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        .vss-order-tabs .nav-tab:hover {
-            background: #fff;
-            color: #000;
+
+        .vss-items-table th,
+        .vss-items-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
         }
-        .vss-order-tabs .nav-tab.nav-tab-active {
-            background: #fff;
-            color: #000;
-            border-bottom: 1px solid #fff;
+
+        .vss-items-table th {
+            background: #f9fafb;
             font-weight: 600;
+            color: #374151;
         }
-        .vss-tab-content {
-            display: none;
-            padding: 20px 0;
+
+        /* Form Styles */
+        .vss-costs-form .costs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
         }
-        .vss-tab-content.vss-tab-active {
-            display: block !important;
+
+        .cost-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .cost-item input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .cost-item input:focus {
+            outline: none;
+            border-color: #2271b1;
+            box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+        }
+
+        /* Status Indicators */
+        .status-pending {
+            color: #f59e0b;
+            background: #fef3c7;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875em;
+            font-weight: 500;
+        }
+
+        .status-approved {
+            color: #10b981;
+            background: #d1fae5;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875em;
+            font-weight: 500;
+        }
+
+        .status-disapproved {
+            color: #ef4444;
+            background: #fee2e2;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875em;
+            font-weight: 500;
+        }
+
+        /* Notes Section */
+        .order-notes {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f9fafb;
+            margin-bottom: 20px;
+        }
+
+        .note-item {
+            padding: 15px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .note-item:last-child {
+            border-bottom: none;
+        }
+
+        .note-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: #6b7280;
+            font-size: 0.875em;
+        }
+
+        .note-content {
+            color: #374151;
+        }
+
+        /* Files Grid */
+        .files-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .file-category {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .file-category h5 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+
+        .no-files {
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .vss-two-column {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .vss-two-column .vss-column {
+                margin: 0 !important;
+            }
+
+            .vss-two-column .vss-column:first-child {
+                margin-bottom: 0;
+            }
+
+            .overview-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .vss-section-content {
+                padding: 20px;
+            }
+
+            .vss-action-buttons {
+                flex-direction: column;
+            }
+
+            .vss-action-buttons .button {
+                width: 100%;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            .vss-order-header p,
+            .vss-quick-actions-section,
+            .vss-production-confirmation-fe form,
+            .vss-approval-form,
+            .vss-costs-form,
+            .vss-shipping-form,
+            .vss-add-note-form,
+            .button {
+                display: none !important;
+            }
+
+            .vss-order-section {
+                break-inside: avoid;
+                margin-bottom: 20px;
+            }
+
+            .vss-two-column {
+                display: block;
+            }
+
+            .vss-two-column .vss-column {
+                margin: 0 0 20px 0 !important;
+            }
         }
         </style>
         <?php

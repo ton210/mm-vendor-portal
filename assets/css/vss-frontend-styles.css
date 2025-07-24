@@ -1535,3 +1535,340 @@
     /* Add dark mode styles here if needed */
 
 }
+
+/* Additional CSS for Single Page Order Details Layout
+   Add this to your vss-frontend-styles.css file */
+
+/* Enhanced Section Styling */
+.vss-single-page-layout .vss-order-section {
+    position: relative;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+/* Section Numbers */
+.vss-section-header::before {
+    content: attr(data-section-number);
+    position: absolute;
+    left: -40px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    background: #2271b1;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Collapsible Sections (optional) */
+.vss-section-header {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 50px;
+}
+
+.vss-section-header::after {
+    content: '▼';
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6b7280;
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+.vss-section-header.collapsed::after {
+    transform: translateY(-50%) rotate(-90deg);
+}
+
+.vss-section-content {
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+}
+
+.vss-section-content.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Progress Indicator */
+.vss-order-progress {
+    position: fixed;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    z-index: 100;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.vss-order-progress ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.vss-order-progress li {
+    margin: 5px 0;
+    font-size: 12px;
+}
+
+.vss-order-progress a {
+    color: #6b7280;
+    text-decoration: none;
+    display: block;
+    padding: 3px 0;
+    transition: color 0.2s ease;
+}
+
+.vss-order-progress a:hover,
+.vss-order-progress a.active {
+    color: #2271b1;
+}
+
+/* Status Pills */
+.vss-section-status {
+    display: inline-block;
+    margin-left: 15px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+.vss-section-status.complete {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.vss-section-status.incomplete {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.vss-section-status.attention {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Action Required Indicator */
+.vss-action-required {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #ef4444;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+/* Enhanced Form Styling */
+.vss-order-section form {
+    background: #f9fafb;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    margin-top: 15px;
+}
+
+.vss-order-section form h4,
+.vss-order-section form h5 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #1f2937;
+}
+
+/* Better File Upload Areas */
+.vss-approval-form input[type="file"] {
+    width: 100%;
+    padding: 40px 20px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.vss-approval-form input[type="file"]:hover {
+    border-color: #2271b1;
+    background: #f0f7ff;
+}
+
+/* Loading States */
+.vss-section-loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.vss-section-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+}
+
+.vss-section-loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #2271b1;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    z-index: 1;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .vss-section-header::before {
+        display: none;
+    }
+    
+    .vss-order-progress {
+        display: none;
+    }
+    
+    .vss-order-section {
+        margin-bottom: 15px;
+        border-radius: 8px;
+    }
+    
+    .vss-section-header {
+        padding: 15px 40px 15px 15px;
+    }
+    
+    .vss-section-content {
+        padding: 15px;
+    }
+    
+    /* Sticky Actions on Mobile */
+    .vss-quick-actions-section {
+        position: sticky;
+        bottom: 0;
+        z-index: 50;
+        margin-bottom: 0;
+        border-radius: 12px 12px 0 0;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .vss-order-section {
+        background: #1f2937;
+        border-color: #374151;
+    }
+    
+    .vss-section-header {
+        background: #111827;
+        border-bottom-color: #374151;
+    }
+    
+    .vss-section-header h3 {
+        color: #f9fafb;
+    }
+    
+    .vss-section-content {
+        color: #e5e7eb;
+    }
+    
+    .overview-section {
+        background: #111827;
+    }
+    
+    .overview-section h4 {
+        color: #f3f4f6;
+    }
+    
+    .overview-section p {
+        color: #d1d5db;
+    }
+}
+
+/* Accessibility Improvements */
+.vss-order-section:focus-within {
+    outline: 2px solid #2271b1;
+    outline-offset: 2px;
+}
+
+.vss-skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 999;
+    padding: 10px;
+    background: #2271b1;
+    color: white;
+    text-decoration: none;
+}
+
+.vss-skip-link:focus {
+    left: 10px;
+    top: 10px;
+}
+
+/* Print Enhancements */
+@media print {
+    .vss-order-section {
+        page-break-inside: avoid;
+        border: 1px solid #000;
+        margin-bottom: 10px;
+    }
+    
+    .vss-section-header {
+        background: none;
+        border-bottom: 2px solid #000;
+        padding: 10px;
+    }
+    
+    .vss-section-header h3 {
+        font-size: 16pt;
+    }
+}
