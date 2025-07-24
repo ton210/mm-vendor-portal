@@ -468,7 +468,7 @@ class VSS_Vendor {
                 // Enqueue frontend scripts
                 wp_enqueue_script(
                     'vss-frontend',
-                    VSS_PLUGIN_URL . 'assets/js/vss-frontend.js',
+                    VSS_PLUGIN_URL . 'assets/js/vss-frontend-scripts.js',
                     [ 'jquery', 'jquery-ui-datepicker' ],
                     VSS_VERSION,
                     true

@@ -71,30 +71,58 @@ function vss_init() {
 }
 
 // Enqueue global styles and scripts
+// This function should replace the vss_enqueue_frontend_assets function in wc-vendor-order-manager.php
+// Around line 92-113
+
+// Enqueue global styles and scripts
 add_action( 'wp_enqueue_scripts', 'vss_enqueue_frontend_assets' );
 function vss_enqueue_frontend_assets() {
-    // Frontend styles
-    wp_enqueue_style( 
-        'vss-frontend-styles', 
-        VSS_PLUGIN_URL . 'assets/css/vss-frontend-styles.css', 
-        [], 
-        VSS_VERSION 
+    // Check if we're on a page that needs vendor scripts
+    global $post;
+    $load_vendor_scripts = false;
+
+    if ( is_page() && $post ) {
+        // Check for vendor portal shortcode
+        if ( has_shortcode( $post->post_content, 'vss_vendor_portal' ) ) {
+            $load_vendor_scripts = true;
+        }
+
+        // Also check if we're on the vendor portal page
+        $vendor_portal_page_id = get_option( 'vss_vendor_portal_page_id' );
+        if ( $vendor_portal_page_id && $post->ID == $vendor_portal_page_id ) {
+            $load_vendor_scripts = true;
+        }
+    }
+
+    // Always load frontend styles
+    wp_enqueue_style(
+        'vss-frontend-styles',
+        VSS_PLUGIN_URL . 'assets/css/vss-frontend-styles.css',
+        [],
+        VSS_VERSION
     );
 
-    // Frontend scripts
-    wp_enqueue_script( 
-        'vss-frontend-scripts', 
-        VSS_PLUGIN_URL . 'assets/js/vss-frontend-scripts.js', 
-        [ 'jquery' ], 
-        VSS_VERSION, 
-        true 
-    );
+    // Load scripts if needed
+    if ( $load_vendor_scripts ) {
+        // Enqueue jQuery UI for datepicker
+        wp_enqueue_script( 'jquery-ui-datepicker' );
+        wp_enqueue_style( 'jquery-ui-datepicker-style', '//code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css' );
 
-    // Localize script
-    wp_localize_script( 'vss-frontend-scripts', 'vss_ajax', [
-        'ajax_url' => admin_url( 'admin-ajax.php' ),
-        'nonce' => wp_create_nonce( 'vss_frontend_nonce' ),
-    ] );
+        // Frontend scripts
+        wp_enqueue_script(
+            'vss-frontend-scripts',
+            VSS_PLUGIN_URL . 'assets/js/vss-frontend-scripts.js',
+            [ 'jquery', 'jquery-ui-datepicker' ],
+            VSS_VERSION,
+            true
+        );
+
+        // Localize script with proper AJAX data
+        wp_localize_script( 'vss-frontend-scripts', 'vss_frontend_ajax', [
+            'ajax_url' => admin_url( 'admin-ajax.php' ),
+            'nonce' => wp_create_nonce( 'vss_frontend_nonce' ),
+        ] );
+    }
 }
 
 // Enqueue admin styles and scripts
