@@ -3,7 +3,7 @@
  * Plugin Name: Vendor Order Manager
  * Plugin URI: https://example.com/vendor-order-manager
  * Description: Comprehensive vendor management system for WooCommerce with approval workflows
- * Version: 7.0.1
+ * Version: 7.0.2
  * Author: Your Company
  * Author URI: https://example.com
  * Text Domain: vss
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'VSS_VERSION', '7.0.1' );
+define( 'VSS_VERSION', '7.0.2' );
 define( 'VSS_PLUGIN_FILE', __FILE__ );
 define( 'VSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'VSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -190,6 +190,14 @@ class Vendor_Order_Manager {
 
         // AJAX nonce for logged out users
         add_action( 'wp_head', [ $this, 'add_ajax_nonce' ] );
+
+        // Debug mode helpers
+        if ( VSS_DEBUG ) {
+            $this->add_debug_scripts();
+        }
+
+        // Ensure tab functionality
+        $this->ensure_tab_functionality();
     }
 
     /**
@@ -371,6 +379,38 @@ class Vendor_Order_Manager {
                 // Check if main script loaded
                 if (typeof window.vss === "undefined") {
                     console.error("VSS: Main script failed to load!");
+
+                    // Create fallback
+                    window.vss = {
+                        tabs: {
+                            init: function() {
+                                $(".vss-order-tabs .nav-tab").off("click.fallback").on("click.fallback", function(e) {
+                                    e.preventDefault();
+                                    var target = $(this).attr("href");
+                                    if (target && target !== "#") {
+                                        $(".vss-order-tabs .nav-tab").removeClass("nav-tab-active");
+                                        $(this).addClass("nav-tab-active");
+                                        $(".vss-tab-content").hide();
+                                        $(target).show();
+                                    }
+                                });
+
+                                // Initialize visibility
+                                $(".vss-tab-content").not(".vss-tab-active").hide();
+                                $(".vss-tab-content.vss-tab-active").show();
+
+                                // Ensure active tab
+                                if ($(".vss-order-tabs .nav-tab-active").length === 0) {
+                                    $(".vss-order-tabs .nav-tab").first().addClass("nav-tab-active");
+                                    $(".vss-tab-content").first().show().addClass("vss-tab-active");
+                                }
+                            }
+                        }
+                    };
+
+                    // Initialize fallback
+                    window.vss.tabs.init();
+                    console.log("VSS: Fallback tab system initialized");
                     return;
                 }
 
@@ -412,8 +452,8 @@ class Vendor_Order_Manager {
             // Also try on window load as final fallback
             $(window).on("load", function() {
                 setTimeout(function() {
-                    if ($(".vss-order-tabs .nav-tab-active").length === 0) {
-                        console.log("VSS: No active tab found on load, activating first tab");
+                    if ($(".vss-tab-content:visible").length === 0) {
+                        console.log("VSS: No visible tabs on load, activating first tab");
                         $(".vss-order-tabs .nav-tab").first().trigger("click");
                     }
                 }, 500);
@@ -631,6 +671,129 @@ class Vendor_Order_Manager {
         }
 
         return $classes;
+    }
+
+    /**
+     * Enhanced debug mode for tab issues
+     */
+    public function add_debug_scripts() {
+        if ( ! VSS_DEBUG ) {
+            return;
+        }
+
+        add_action( 'wp_footer', function() {
+            if ( ! $this->should_load_vendor_assets() ) {
+                return;
+            }
+            ?>
+            <script>
+            // VSS Debug Helper
+            (function() {
+                console.log('=== VSS DEBUG MODE ===');
+                console.log('jQuery loaded:', typeof jQuery !== 'undefined');
+                console.log('VSS object:', typeof window.VSS);
+                console.log('vss object:', typeof window.vss);
+                console.log('vss_frontend_ajax:', typeof window.vss_frontend_ajax);
+
+                // Check for tab elements
+                if (typeof jQuery !== 'undefined') {
+                    jQuery(document).ready(function($) {
+                        console.log('Tab containers found:', $('.vss-order-tabs').length);
+                        console.log('Tab links found:', $('.vss-order-tabs .nav-tab').length);
+                        console.log('Tab contents found:', $('.vss-tab-content').length);
+                        console.log('Active tabs:', $('.nav-tab-active').length);
+                        console.log('Visible tab contents:', $('.vss-tab-content:visible').length);
+
+                        // List all tabs and their targets
+                        $('.vss-order-tabs .nav-tab').each(function(i) {
+                            var $tab = $(this);
+                            var target = $tab.attr('href');
+                            var $target = $(target);
+                            console.log('Tab ' + i + ':', {
+                                text: $tab.text().trim(),
+                                href: target,
+                                isActive: $tab.hasClass('nav-tab-active'),
+                                targetExists: $target.length > 0,
+                                targetVisible: $target.is(':visible')
+                            });
+                        });
+                    });
+                }
+            })();
+            </script>
+            <?php
+        }, 999 );
+    }
+
+    /**
+     * Force load tab functionality with multiple fallbacks
+     */
+    private function ensure_tab_functionality() {
+        add_action( 'wp_footer', function() {
+            ?>
+            <script>
+            // Global tab fallback system
+            window.VSSTabFallback = {
+                init: function() {
+                    if (typeof jQuery === 'undefined') {
+                        console.error('VSS: jQuery not loaded!');
+                        return;
+                    }
+
+                    jQuery(function($) {
+                        // Simple tab handler that always works
+                        function initTabs() {
+                            $('.vss-order-tabs').each(function() {
+                                var $container = $(this);
+                                var $tabs = $container.find('.nav-tab');
+
+                                $tabs.off('click.fallback').on('click.fallback', function(e) {
+                                    e.preventDefault();
+                                    var target = $(this).attr('href');
+
+                                    if (!target || target === '#') return;
+
+                                    // Update states
+                                    $tabs.removeClass('nav-tab-active');
+                                    $(this).addClass('nav-tab-active');
+
+                                    // Show/hide content
+                                    $('.vss-tab-content').hide();
+                                    $(target).show();
+
+                                    return false;
+                                });
+                            });
+
+                            // Ensure active tab is visible
+                            $('.vss-tab-content').hide();
+                            $('.vss-tab-content.vss-tab-active').show();
+
+                            // If no active tab, activate first
+                            if ($('.nav-tab-active').length === 0) {
+                                $('.vss-order-tabs .nav-tab').first().click();
+                            }
+                        }
+
+                        // Try multiple times
+                        initTabs();
+                        setTimeout(initTabs, 100);
+                        setTimeout(initTabs, 500);
+                        setTimeout(initTabs, 1000);
+                    });
+                }
+            };
+
+            // Initialize on various events
+            if (document.readyState === 'complete') {
+                VSSTabFallback.init();
+            } else {
+                document.addEventListener('DOMContentLoaded', VSSTabFallback.init);
+                window.addEventListener('load', VSSTabFallback.init);
+            }
+            </script>
+            <?php
+        }, 1 ); // Very high priority to load early
     }
 
     /**

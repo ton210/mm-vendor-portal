@@ -453,9 +453,6 @@ class VSS_Vendor {
     /**
      * Enqueue frontend assets
      */
-    /**
-     * Enqueue frontend assets
-     */
     public static function enqueue_frontend_assets() {
         // More robust check: is it the portal page OR does the page contain the shortcode?
         $is_vendor_portal = false;
@@ -2147,7 +2144,8 @@ class VSS_Vendor {
     }
 
     /**
-     * Render frontend order details
+     * Render frontend order details - FIXED VERSION
+     * This method replaces the existing one in class-vss-vendor.php
      */
     private static function render_frontend_order_details( $order_id ) {
         $order = wc_get_order( $order_id );
@@ -2169,7 +2167,8 @@ class VSS_Vendor {
             <?php self::render_order_status_bar( $order ); ?>
             <?php self::render_vendor_production_confirmation_section( $order ); ?>
 
-            <div class="vss-order-tabs">
+            <!-- Tab Navigation -->
+            <div class="vss-order-tabs" id="vss-order-tabs-<?php echo esc_attr( $order_id ); ?>">
                 <a class="nav-tab nav-tab-active" href="#tab-overview"><?php esc_html_e( 'Overview', 'vss' ); ?></a>
                 <a class="nav-tab" href="#tab-products"><?php esc_html_e( 'Products', 'vss' ); ?></a>
                 <a class="nav-tab" href="#tab-mockup"><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></a>
@@ -2180,78 +2179,167 @@ class VSS_Vendor {
                 <a class="nav-tab" href="#tab-files"><?php esc_html_e( 'Files', 'vss' ); ?></a>
             </div>
 
-            <div id="tab-overview" class="vss-tab-content vss-tab-active">
+            <!-- Tab Contents -->
+            <div id="tab-overview" class="vss-tab-content vss-tab-active" data-tab="overview">
                 <?php self::render_order_overview( $order ); ?>
             </div>
 
-            <div id="tab-products" class="vss-tab-content">
+            <div id="tab-products" class="vss-tab-content" data-tab="products">
                 <?php self::render_order_products( $order ); ?>
             </div>
 
-            <div id="tab-mockup" class="vss-tab-content">
+            <div id="tab-mockup" class="vss-tab-content" data-tab="mockup">
                 <?php self::render_approval_section( $order, 'mockup' ); ?>
             </div>
 
-            <div id="tab-production" class="vss-tab-content">
+            <div id="tab-production" class="vss-tab-content" data-tab="production">
                 <?php self::render_approval_section( $order, 'production_file' ); ?>
             </div>
 
-            <div id="tab-costs" class="vss-tab-content">
+            <div id="tab-costs" class="vss-tab-content" data-tab="costs">
                 <?php self::render_costs_section( $order ); ?>
             </div>
 
-            <div id="tab-shipping" class="vss-tab-content">
+            <div id="tab-shipping" class="vss-tab-content" data-tab="shipping">
                 <?php self::render_shipping_section( $order ); ?>
             </div>
 
-            <div id="tab-notes" class="vss-tab-content">
+            <div id="tab-notes" class="vss-tab-content" data-tab="notes">
                 <?php self::render_notes_section( $order ); ?>
             </div>
 
-            <div id="tab-files" class="vss-tab-content">
+            <div id="tab-files" class="vss-tab-content" data-tab="files">
                 <?php self::render_files_section( $order ); ?>
             </div>
         </div>
 
+        <!-- Inline Tab Script - This ensures tabs work even if main script fails -->
+        <script>
+        // VSS Tab System - Inline Fallback
+        (function($) {
+            'use strict';
+
+            function initOrderTabs() {
+                console.log('VSS: Initializing order tabs inline');
+
+                var $container = $('#vss-order-tabs-<?php echo esc_js( $order_id ); ?>');
+                var $tabs = $container.find('.nav-tab');
+                var $contents = $container.siblings('.vss-tab-content');
+
+                // Hide all tab contents except active
+                $contents.not('.vss-tab-active').hide();
+
+                // Ensure active tab content is visible
+                $('.vss-tab-content.vss-tab-active').show();
+
+                // Handle tab clicks
+                $tabs.off('click.inline').on('click.inline', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    var $tab = $(this);
+                    var target = $tab.attr('href');
+
+                    console.log('VSS: Tab clicked (inline):', target);
+
+                    if (!target || target === '#') return false;
+
+                    // Update active states
+                    $tabs.removeClass('nav-tab-active');
+                    $tab.addClass('nav-tab-active');
+
+                    // Show/hide content
+                    $contents.hide().removeClass('vss-tab-active');
+                    $(target).show().addClass('vss-tab-active');
+
+                    // Update URL without jumping
+                    if (history.replaceState) {
+                        history.replaceState(null, null, target);
+                    }
+
+                    return false;
+                });
+
+                // Handle direct hash links
+                if (window.location.hash) {
+                    var $hashTab = $tabs.filter('[href="' + window.location.hash + '"]');
+                    if ($hashTab.length) {
+                        $hashTab.trigger('click.inline');
+                    }
+                }
+
+                // Ensure we have at least one visible tab
+                if ($contents.filter(':visible').length === 0) {
+                    console.log('VSS: No visible tabs, showing first tab');
+                    $tabs.first().trigger('click.inline');
+                }
+            }
+
+            // Initialize immediately if jQuery is ready
+            if ($ && $.fn && $.fn.ready) {
+                $(document).ready(function() {
+                    console.log('VSS: Document ready (inline)');
+                    initOrderTabs();
+                });
+            }
+
+            // Also try on window load
+            $(window).on('load', function() {
+                console.log('VSS: Window loaded (inline)');
+                // Give main script a chance to work first
+                setTimeout(function() {
+                    // Check if tabs are working
+                    if ($('.vss-tab-content:visible').length === 0) {
+                        console.log('VSS: Reinitializing tabs on window load');
+                        initOrderTabs();
+                    }
+                }, 500);
+            });
+
+        })(jQuery);
+        </script>
+
         <style>
-            .vss-order-tabs {
-                margin: 20px 0;
-                border-bottom: 1px solid #ccd0d4;
-                display: flex;
-                flex-wrap: wrap;
-            }
-            .vss-order-tabs .nav-tab {
-                display: inline-block;
-                padding: 10px 20px;
-                margin: 0 5px -1px 0;
-                border: 1px solid #ccd0d4;
-                border-bottom: 1px solid #ccd0d4;
-                background: #f1f1f1;
-                text-decoration: none;
-                color: #555;
-                cursor: pointer;
-                transition: all 0.2s ease;
-            }
-            .vss-order-tabs .nav-tab:hover {
-                background: #fff;
-                color: #000;
-            }
-            .vss-order-tabs .nav-tab.nav-tab-active {
-                background: #fff;
-                color: #000;
-                border-bottom: 1px solid #fff;
-                font-weight: 600;
-            }
-            .vss-tab-content {
-                display: none;
-                padding: 20px 0;
-            }
-            .vss-tab-content.vss-tab-active {
-                display: block;
-            }
+        /* Inline styles to ensure tabs work */
+        .vss-order-tabs {
+            margin: 20px 0;
+            border-bottom: 1px solid #ccd0d4;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .vss-order-tabs .nav-tab {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 0 5px -1px 0;
+            border: 1px solid #ccd0d4;
+            border-bottom: 1px solid #ccd0d4;
+            background: #f1f1f1;
+            text-decoration: none;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .vss-order-tabs .nav-tab:hover {
+            background: #fff;
+            color: #000;
+        }
+        .vss-order-tabs .nav-tab.nav-tab-active {
+            background: #fff;
+            color: #000;
+            border-bottom: 1px solid #fff;
+            font-weight: 600;
+        }
+        .vss-tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+        .vss-tab-content.vss-tab-active {
+            display: block !important;
+        }
         </style>
         <?php
     }
+
 
     /**
      * Render order status bar

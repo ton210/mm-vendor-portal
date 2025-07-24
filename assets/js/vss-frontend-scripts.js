@@ -1,6 +1,6 @@
 /**
  * VSS Vendor Portal Frontend Scripts - FIXED VERSION
- * Version: 7.0.1
+ * Version: 7.0.2
  *
  * This version fixes the initialization issues and tab functionality
  */
@@ -10,14 +10,13 @@
 
     // Create global VSS object immediately
     window.VSS = window.VSS || {};
+    window.vss = window.vss || {}; // Also create lowercase version for compatibility
 
     console.log('VSS: Frontend scripts loading...');
 
-    // Wait for DOM ready
+    // Initialize everything when DOM is ready
     $(document).ready(function() {
         console.log('VSS: Document ready, initializing...');
-
-        // Initialize everything
         initializeVSSFrontend();
     });
 
@@ -54,90 +53,101 @@
     function initializeVendorTabs() {
         console.log('VSS: Initializing vendor tabs...');
 
-        var $tabContainer = $('.vss-order-tabs');
-        var $tabContents = $('.vss-tab-content');
+        // Find all tab containers (support multiple instances)
+        $('.vss-order-tabs').each(function() {
+            var $tabContainer = $(this);
+            var tabsId = $tabContainer.attr('id') || 'tabs-' + Math.random().toString(36).substr(2, 9);
 
-        if ($tabContainer.length === 0) {
-            console.log('VSS: No tab container found');
-            return;
-        }
+            if (!$tabContainer.attr('id')) {
+                $tabContainer.attr('id', tabsId);
+            }
 
-        console.log('VSS: Found:', {
-            containers: $tabContainer.length,
-            tabs: $tabContainer.find('.nav-tab').length,
-            contents: $tabContents.length
+            // Find related tab contents
+            var $tabContents = $tabContainer.nextAll('.vss-tab-content');
+
+            console.log('VSS: Found tab container:', {
+                id: tabsId,
+                tabs: $tabContainer.find('.nav-tab').length,
+                contents: $tabContents.length
+            });
+
+            // Hide all tab contents except the active one
+            $tabContents.not('.vss-tab-active').hide();
+
+            // Remove any existing handlers to prevent duplicates
+            $tabContainer.off('click.vss-tabs');
+
+            // Add click handler for tabs
+            $tabContainer.on('click.vss-tabs', '.nav-tab', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                var $clickedTab = $(this);
+                var targetHash = $clickedTab.attr('href');
+
+                console.log('VSS: Tab clicked:', targetHash);
+
+                if (!targetHash || targetHash === '#') {
+                    console.error('VSS: Invalid tab target');
+                    return false;
+                }
+
+                // Handle both ID and hash formats
+                var targetId = targetHash.replace('#', '');
+                var $targetContent = $('#' + targetId);
+
+                // If not found by ID, try by class
+                if ($targetContent.length === 0) {
+                    $targetContent = $('.vss-tab-content[data-tab="' + targetId + '"]');
+                }
+
+                if ($targetContent.length === 0) {
+                    console.error('VSS: Target content not found:', targetId);
+                    return false;
+                }
+
+                // Update active states
+                $tabContainer.find('.nav-tab').removeClass('nav-tab-active');
+                $clickedTab.addClass('nav-tab-active');
+
+                // Hide all contents and show target with animation
+                $tabContents.removeClass('vss-tab-active').hide();
+                $targetContent.addClass('vss-tab-active').fadeIn(200);
+
+                console.log('VSS: Switched to tab:', targetId);
+
+                // Update URL hash without jumping
+                if (history.replaceState) {
+                    history.replaceState(null, null, targetHash);
+                }
+
+                // Trigger custom event
+                $(document).trigger('vss:tab-changed', [targetId]);
+
+                return false;
+            });
+
+            // Initialize first tab if no active tab
+            var $activeTab = $tabContainer.find('.nav-tab-active');
+            if ($activeTab.length === 0) {
+                console.log('VSS: No active tab found, activating first tab');
+                var $firstTab = $tabContainer.find('.nav-tab').first();
+                if ($firstTab.length > 0) {
+                    $firstTab.addClass('nav-tab-active');
+                    var firstTargetId = $firstTab.attr('href').replace('#', '');
+                    $('#' + firstTargetId).addClass('vss-tab-active').show();
+                }
+            } else {
+                // Ensure active tab content is visible
+                var activeTargetId = $activeTab.attr('href').replace('#', '');
+                $('#' + activeTargetId).show();
+            }
         });
 
-        // Hide all tab contents except the active one
-        $tabContents.not('.vss-tab-active').hide();
-
-        // Remove any existing handlers to prevent duplicates
-        $tabContainer.off('click.vss-tabs');
-
-        // Add click handler for tabs
-        $tabContainer.on('click.vss-tabs', '.nav-tab', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            var $clickedTab = $(this);
-            var targetHash = $clickedTab.attr('href');
-
-            console.log('VSS: Tab clicked:', targetHash);
-
-            if (!targetHash || targetHash === '#') {
-                console.error('VSS: Invalid tab target');
-                return false;
-            }
-
-            var targetId = targetHash.replace('#', '');
-            var $targetContent = $('#' + targetId);
-
-            if ($targetContent.length === 0) {
-                console.error('VSS: Target content not found:', targetId);
-                return false;
-            }
-
-            // Update active states
-            $tabContainer.find('.nav-tab').removeClass('nav-tab-active');
-            $clickedTab.addClass('nav-tab-active');
-
-            // Hide all contents and show target with animation
-            $tabContents.removeClass('vss-tab-active').hide();
-            $targetContent.addClass('vss-tab-active').fadeIn(200);
-
-            console.log('VSS: Switched to tab:', targetId);
-
-            // Update URL hash without jumping
-            if (history.replaceState) {
-                history.replaceState(null, null, targetHash);
-            }
-
-            // Trigger custom event
-            $(document).trigger('vss:tab-changed', [targetId]);
-
-            return false;
-        });
-
-        // Initialize first tab if no active tab
-        var $activeTab = $tabContainer.find('.nav-tab-active');
-        if ($activeTab.length === 0) {
-            console.log('VSS: No active tab found, activating first tab');
-            var $firstTab = $tabContainer.find('.nav-tab').first();
-            if ($firstTab.length > 0) {
-                $firstTab.addClass('nav-tab-active');
-                var firstTargetId = $firstTab.attr('href').replace('#', '');
-                $('#' + firstTargetId).addClass('vss-tab-active').show();
-            }
-        } else {
-            // Ensure active tab content is visible
-            var activeTargetId = $activeTab.attr('href').replace('#', '');
-            $('#' + activeTargetId).show();
-        }
-
-        // Handle direct URL hash
+        // Handle direct URL hash on page load
         if (window.location.hash) {
             setTimeout(function() {
-                var $hashTab = $tabContainer.find('a[href="' + window.location.hash + '"]');
+                var $hashTab = $('.vss-order-tabs a[href="' + window.location.hash + '"]');
                 if ($hashTab.length > 0) {
                     $hashTab.trigger('click.vss-tabs');
                 }
@@ -429,9 +439,9 @@
         return text.replace(/[&<>"']/g, function(m) { return map[m]; });
     }
 
-    // Public API
+    // Public API - Make sure this is available globally
     window.vss = {
-        version: '7.0.1',
+        version: '7.0.2',
         tabs: {
             init: initializeVendorTabs,
             show: function(tabId) {
@@ -444,9 +454,14 @@
             }
         },
         notify: showNotification,
-        reinit: initializeVSSFrontend
+        reinit: initializeVSSFrontend,
+        calculateCosts: initializeCostCalculations,
+        initDatePickers: initializeDatePickers
     };
 
-    console.log('VSS: Frontend script loaded successfully');
+    // Also expose on VSS object for backward compatibility
+    window.VSS = window.vss;
+
+    console.log('VSS: Frontend script loaded successfully, window.vss available:', typeof window.vss !== 'undefined');
 
 })(jQuery);
