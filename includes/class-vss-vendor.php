@@ -49,6 +49,9 @@ class VSS_Vendor {
         add_action( 'wp_ajax_nopriv_vss_track_order', [ self::class, 'ajax_track_order' ] );
         add_action( 'wp_ajax_vss_expand_order_row', [ self::class, 'ajax_expand_order_row' ] );
         add_action( 'wp_ajax_assign_order_to_vendor', [ self::class, 'ajax_assign_order_to_vendor' ] );
+        add_action( 'wp_ajax_vss_download_admin_zip', [ self::class, 'ajax_download_admin_zip' ] );
+        add_action( 'wp_ajax_nopriv_vss_download_admin_zip', [ self::class, 'ajax_download_admin_zip' ] );
+
 
         // Vendor dashboard widgets
         add_action( 'wp_dashboard_setup', [ self::class, 'add_vendor_dashboard_widgets' ] );
@@ -64,6 +67,9 @@ class VSS_Vendor {
 
         // Enqueue frontend assets for vendor portal
         add_action( 'wp_enqueue_scripts', [ self::class, 'enqueue_frontend_assets' ] );
+
+        // Handle secure file downloads
+        add_action( 'init', [ self::class, 'handle_file_download' ], 1 );
     }
 
     /**
@@ -2333,6 +2339,146 @@ class VSS_Vendor {
     }
 
     /**
+     * Handle direct file downloads with authentication
+     */
+    public static function handle_file_download() {
+        // Check if this is a VSS file download request
+        if ( isset( $_GET['vss_download'] ) && isset( $_GET['file_id'] ) && isset( $_GET['order_id'] ) ) {
+            $file_id = intval( $_GET['file_id'] );
+            $order_id = intval( $_GET['order_id'] );
+            $nonce = isset( $_GET['_wpnonce'] ) ? $_GET['_wpnonce'] : '';
+
+            // Verify nonce
+            if ( ! wp_verify_nonce( $nonce, 'vss_download_file_' . $file_id . '_' . $order_id ) ) {
+                wp_die( __( 'Security check failed.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 403 ] );
+            }
+
+            // Check if user is logged in
+            if ( ! is_user_logged_in() ) {
+                wp_die( __( 'You must be logged in to download files.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 403 ] );
+            }
+
+            // Verify user has access to this order
+            $order = wc_get_order( $order_id );
+            if ( ! $order ) {
+                wp_die( __( 'Order not found.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 404 ] );
+            }
+
+            $current_user_id = get_current_user_id();
+            $vendor_id = get_post_meta( $order_id, '_vss_vendor_user_id', true );
+
+            // Check if user is the assigned vendor or an admin
+            if ( $vendor_id != $current_user_id && ! current_user_can( 'manage_woocommerce' ) ) {
+                wp_die( __( 'You do not have permission to download this file.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 403 ] );
+            }
+
+            // Verify the file belongs to this order
+            $attached_file_id = get_post_meta( $order_id, '_vss_attached_zip_id', true );
+            if ( $attached_file_id != $file_id ) {
+                wp_die( __( 'File not found for this order.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 404 ] );
+            }
+
+            // Get file path
+            $file_path = get_attached_file( $file_id );
+            if ( ! $file_path || ! file_exists( $file_path ) ) {
+                wp_die( __( 'File not found on server.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 404 ] );
+            }
+
+            // Get file info
+            $file_name = basename( $file_path );
+            $file_type = wp_check_filetype( $file_path );
+            $file_mime = $file_type['type'] ?: 'application/octet-stream';
+
+            // Log download
+            $order->add_order_note( sprintf(
+                __( 'Admin ZIP file downloaded by %s', 'vss' ),
+                wp_get_current_user()->display_name
+            ) );
+
+            // Serve file
+            self::serve_file_download( $file_path, $file_name, $file_mime );
+            exit;
+        }
+    }
+
+    /**
+     * Serve file for download
+     */
+    private static function serve_file_download( $file_path, $file_name, $mime_type ) {
+        // Clean any output buffers
+        while ( ob_get_level() ) {
+            ob_end_clean();
+        }
+
+        // Disable caching
+        header( 'Cache-Control: no-cache, must-revalidate' );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        // Set content headers
+        header( 'Content-Type: ' . $mime_type );
+        header( 'Content-Disposition: attachment; filename="' . $file_name . '"' );
+        header( 'Content-Length: ' . filesize( $file_path ) );
+        header( 'Content-Transfer-Encoding: binary' );
+
+        // Output file
+        readfile( $file_path );
+    }
+
+    /**
+     * Generate secure download URL for admin ZIP files
+     */
+    public static function get_secure_download_url( $file_id, $order_id ) {
+        $nonce = wp_create_nonce( 'vss_download_file_' . $file_id . '_' . $order_id );
+
+        return add_query_arg( [
+            'vss_download' => '1',
+            'file_id' => $file_id,
+            'order_id' => $order_id,
+            '_wpnonce' => $nonce,
+        ], home_url() );
+    }
+
+    /**
+     * AJAX handler for downloading admin ZIP (alternative method)
+     */
+    public static function ajax_download_admin_zip() {
+        // Check nonce
+        check_ajax_referer( 'vss_frontend_nonce', 'nonce' );
+
+        $order_id = isset( $_POST['order_id'] ) ? intval( $_POST['order_id'] ) : 0;
+        $file_id = isset( $_POST['file_id'] ) ? intval( $_POST['file_id'] ) : 0;
+
+        if ( ! $order_id || ! $file_id ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid request.', 'vss' ) ] );
+        }
+
+        // Verify user has access
+        if ( ! self::is_current_user_vendor() ) {
+            wp_send_json_error( [ 'message' => __( 'Permission denied.', 'vss' ) ] );
+        }
+
+        $order = wc_get_order( $order_id );
+        if ( ! $order || get_post_meta( $order_id, '_vss_vendor_user_id', true ) != get_current_user_id() ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid order or permission denied.', 'vss' ) ] );
+        }
+
+        // Verify file belongs to order
+        $attached_file_id = get_post_meta( $order_id, '_vss_attached_zip_id', true );
+        if ( $attached_file_id != $file_id ) {
+            wp_send_json_error( [ 'message' => __( 'File not found for this order.', 'vss' ) ] );
+        }
+
+        // Generate secure download URL
+        $download_url = self::get_secure_download_url( $file_id, $order_id );
+
+        wp_send_json_success( [
+            'download_url' => $download_url,
+            'message' => __( 'Download link generated successfully.', 'vss' ),
+        ] );
+    }
+
+    /**
      * Render frontend order details - FIXED SINGLE PAGE VERSION
      * This replaces the tab-based layout with a single-page sectioned layout
      *
@@ -2985,7 +3131,8 @@ class VSS_Vendor {
     }
 
     /**
-     * Render order products
+     * Modified render_order_products method to use secure download URLs
+     * Replace the existing method in class-vss-vendor.php
      */
     private static function render_order_products( $order ) {
         ?>
@@ -3041,9 +3188,14 @@ class VSS_Vendor {
                                     <?php
                                     // Check if there's an admin uploaded ZIP file
                                     $admin_zip_id = get_post_meta( $order->get_id(), '_vss_attached_zip_id', true );
-                                    if ( $admin_zip_id && ( $admin_zip_url = wp_get_attachment_url( $admin_zip_id ) ) ) :
+                                    if ( $admin_zip_id ) :
+                                        // Use secure download URL instead of direct attachment URL
+                                        $secure_download_url = self::get_secure_download_url( $admin_zip_id, $order->get_id() );
                                     ?>
-                                        <a href="<?php echo esc_url( $admin_zip_url ); ?>" class="button button-small" target="_blank">
+                                        <a href="<?php echo esc_url( $secure_download_url ); ?>"
+                                           class="button button-small vss-admin-zip-download"
+                                           data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
+                                           data-file-id="<?php echo esc_attr( $admin_zip_id ); ?>">
                                             <?php esc_html_e( 'Download Admin ZIP', 'vss' ); ?>
                                         </a>
                                     <?php else : ?>
@@ -3059,7 +3211,7 @@ class VSS_Vendor {
 
         <script>
         jQuery(document).ready(function($) {
-            // Handle Zakeke file fetching
+            // Handle Zakeke file fetching (existing code)
             $('.vss-manual-fetch-zakeke-zip').on('click', function() {
                 var $button = $(this);
                 var originalText = $button.text();
@@ -3090,6 +3242,35 @@ class VSS_Vendor {
                         alert('<?php esc_js_e( 'An error occurred. Please try again.', 'vss' ); ?>');
                         $button.prop('disabled', false).text(originalText);
                     }
+                });
+            });
+
+            // Optional: Add progress tracking for admin ZIP downloads
+            $('.vss-admin-zip-download').on('click', function(e) {
+                var $link = $(this);
+                var downloadStarted = false;
+
+                // Show download started message
+                var $message = $('<span class="download-message" style="margin-left: 10px; color: #2271b1;"><?php esc_js_e( 'Download starting...', 'vss' ); ?></span>');
+                $link.after($message);
+
+                // Remove message after a few seconds
+                setTimeout(function() {
+                    $message.fadeOut(function() {
+                        $(this).remove();
+                    });
+                }, 3000);
+
+                // Track if download started (optional)
+                var orderId = $link.data('order-id');
+                var fileId = $link.data('file-id');
+
+                // Log download attempt via AJAX (optional)
+                $.post(vss_frontend_ajax.ajax_url, {
+                    action: 'vss_log_download_attempt',
+                    order_id: orderId,
+                    file_id: fileId,
+                    _ajax_nonce: vss_frontend_ajax.nonce
                 });
             });
         });
@@ -3338,7 +3519,7 @@ class VSS_Vendor {
     }
 
     /**
-     * Render files section
+     * Also update the render_files_section method to use secure URLs
      */
     private static function render_files_section( $order ) {
         ?>
@@ -3391,14 +3572,18 @@ class VSS_Vendor {
                     <?php endforeach; ?>
 
                     <?php
-                    // Check for admin uploaded ZIP
+                    // Check for admin uploaded ZIP with secure URL
                     $admin_zip_id = get_post_meta( $order->get_id(), '_vss_attached_zip_id', true );
-                    if ( $admin_zip_id && ( $admin_zip_url = wp_get_attachment_url( $admin_zip_id ) ) ) :
+                    if ( $admin_zip_id ) :
                         $has_design_files = true;
+                        $secure_download_url = self::get_secure_download_url( $admin_zip_id, $order->get_id() );
                     ?>
                         <p>
                             <strong><?php esc_html_e( 'Admin Uploaded ZIP:', 'vss' ); ?></strong><br>
-                            <a href="<?php echo esc_url( $admin_zip_url ); ?>" target="_blank">
+                            <a href="<?php echo esc_url( $secure_download_url ); ?>"
+                               class="vss-admin-zip-download"
+                               data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
+                               data-file-id="<?php echo esc_attr( $admin_zip_id ); ?>">
                                 <?php esc_html_e( 'Download ZIP File', 'vss' ); ?>
                             </a>
                         </p>
@@ -3807,3 +3992,27 @@ function vss_create_vendor_order_indexes() {
 if ( defined( 'VSS_PLUGIN_FILE' ) ) {
     register_activation_hook( VSS_PLUGIN_FILE, 'vss_create_vendor_order_indexes' );
 }
+
+/**
+ * Optional: Add logging for download attempts
+ */
+add_action( 'wp_ajax_vss_log_download_attempt', function() {
+    check_ajax_referer( 'vss_frontend_nonce', '_ajax_nonce' );
+
+    $order_id = isset( $_POST['order_id'] ) ? intval( $_POST['order_id'] ) : 0;
+    $file_id = isset( $_POST['file_id'] ) ? intval( $_POST['file_id'] ) : 0;
+
+    if ( $order_id && $file_id ) {
+        // Log the download attempt
+        $order = wc_get_order( $order_id );
+        if ( $order ) {
+            $user = wp_get_current_user();
+            $order->add_order_note( sprintf(
+                __( 'Download attempt for admin ZIP file by %s', 'vss' ),
+                $user->display_name
+            ) );
+        }
+    }
+
+    wp_send_json_success();
+});
