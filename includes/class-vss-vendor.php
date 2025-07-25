@@ -2343,7 +2343,7 @@ class VSS_Vendor {
      */
     public static function handle_file_download() {
         // Check if this is a VSS file download request
-        if ( isset( $_GET['vss_download'] ) && isset( $_GET['file_id'] ) && isset( $_POST['order_id'] ) ) {
+        if ( isset( $_GET['vss_download'] ) && isset( $_GET['file_id'] ) && isset( $_GET['order_id'] ) ) {
             $file_id = intval( $_GET['file_id'] );
             $order_id = intval( $_GET['order_id'] );
             $nonce = isset( $_GET['_wpnonce'] ) ? $_GET['_wpnonce'] : '';
@@ -2494,6 +2494,22 @@ class VSS_Vendor {
             return;
         }
 
+        // Debug information (only show if VSS_DEBUG is true)
+        if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
+            ?>
+            <div class="vss-debug-info" style="background: #f0f0f0; padding: 20px; margin: 20px 0; border: 2px solid #999;">
+                <h3>Debug Information</h3>
+                <p><strong>Order ID:</strong> <?php echo esc_html( $order_id ); ?></p>
+                <p><strong>Order Status:</strong> <?php echo esc_html( $order->get_status() ); ?></p>
+                <p><strong>Has Processing Status:</strong> <?php echo $order->has_status( 'processing' ) ? 'YES' : 'NO'; ?></p>
+                <p><strong>Ship Date:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_estimated_ship_date', true ) ?: 'Not set' ); ?></p>
+                <p><strong>Mockup Status:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_mockup_status', true ) ?: 'Not set' ); ?></p>
+                <p><strong>Production File Status:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_production_file_status', true ) ?: 'Not set' ); ?></p>
+                <p><strong>Tracking Number:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_tracking_number', true ) ?: 'Not set' ); ?></p>
+            </div>
+            <?php
+        }
+
         $portal_url = get_permalink();
         ?>
         <div class="vss-order-details-wrapper vss-single-page-layout">
@@ -2533,28 +2549,52 @@ class VSS_Vendor {
                     </div>
                 </div>
 
-                <div class="vss-order-section vss-two-column">
-                    <div class="vss-column" id="section-mockup">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php self::render_approval_section( $order, 'mockup' ); ?>
-                        </div>
+                <!-- Mockup Approval Section (Full Width) -->
+                <div class="vss-order-section" id="section-mockup">
+                    <div class="vss-section-header">
+                        <h3><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></h3>
                     </div>
+                    <div class="vss-section-content">
+                        <?php
+                        // Add debug output
+                        if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
+                            echo '<div class="debug-info" style="background: #ffffcc; padding: 10px; margin-bottom: 20px;">';
+                            echo '<strong>DEBUG:</strong> Rendering mockup section for order ' . $order->get_id();
+                            echo ' | Status: ' . $order->get_status();
+                            echo ' | Has processing: ' . ($order->has_status('processing') ? 'YES' : 'NO');
+                            echo '</div>';
+                        }
 
-                    <div class="vss-column" id="section-production">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Production Files', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php self::render_approval_section( $order, 'production_file' ); ?>
-                        </div>
+                        self::render_approval_section( $order, 'mockup' );
+                        ?>
                     </div>
                 </div>
 
-                <div class="vss-order-section vss-two-column">
-                    <div class="vss-column" id="section-costs">
+                <!-- Production Files Section (Full Width) -->
+                <div class="vss-order-section" id="section-production">
+                    <div class="vss-section-header">
+                        <h3><?php esc_html_e( 'Production Files', 'vss' ); ?></h3>
+                    </div>
+                    <div class="vss-section-content">
+                        <?php
+                        // Add debug output
+                        if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
+                            echo '<div class="debug-info" style="background: #ffffcc; padding: 10px; margin-bottom: 20px;">';
+                            echo '<strong>DEBUG:</strong> Rendering production section for order ' . $order->get_id();
+                            echo ' | Status: ' . $order->get_status();
+                            echo ' | Has processing: ' . ($order->has_status('processing') ? 'YES' : 'NO');
+                            echo '</div>';
+                        }
+
+                        self::render_approval_section( $order, 'production_file' );
+                        ?>
+                    </div>
+                </div>
+
+                <!-- Costs and Shipping Row -->
+                <div class="vss-order-row vss-two-column-row">
+                    <!-- Costs Section -->
+                    <div class="vss-order-section vss-half-width" id="section-costs">
                         <div class="vss-section-header">
                             <h3><?php esc_html_e( 'Order Costs', 'vss' ); ?></h3>
                         </div>
@@ -2563,12 +2603,26 @@ class VSS_Vendor {
                         </div>
                     </div>
 
-                    <div class="vss-column" id="section-shipping">
+                    <!-- Shipping Section -->
+                    <div class="vss-order-section vss-half-width" id="section-shipping">
                         <div class="vss-section-header">
                             <h3><?php esc_html_e( 'Shipping Information', 'vss' ); ?></h3>
                         </div>
                         <div class="vss-section-content">
-                            <?php self::render_shipping_section( $order ); ?>
+                            <?php
+                            // Add debug output
+                            if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
+                                echo '<div class="debug-info" style="background: #ffffcc; padding: 10px; margin-bottom: 20px;">';
+                                echo '<strong>DEBUG:</strong> Rendering shipping section for order ' . $order->get_id();
+                                echo ' | Status: ' . $order->get_status();
+                                echo ' | Has processing: ' . ($order->has_status('processing') ? 'YES' : 'NO');
+                                $tracking = get_post_meta( $order->get_id(), '_vss_tracking_number', true );
+                                echo ' | Tracking: ' . ($tracking ?: 'Not set');
+                                echo '</div>';
+                            }
+
+                            self::render_shipping_section( $order );
+                            ?>
                         </div>
                     </div>
                 </div>
@@ -3014,6 +3068,49 @@ class VSS_Vendor {
                 margin: 0 0 20px 0 !important;
             }
         }
+
+        /* Two column row container */
+        .vss-two-column-row {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .vss-two-column-row .vss-half-width {
+            flex: 1;
+            min-width: 0; /* Prevent flex items from overflowing */
+        }
+
+        /* Ensure all sections are visible */
+        .vss-order-section {
+            display: block !important;
+            visibility: visible !important;
+        }
+
+        .vss-section-content {
+            display: block !important;
+            visibility: visible !important;
+            min-height: 50px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .vss-two-column-row {
+                flex-direction: column;
+            }
+
+            .vss-two-column-row .vss-half-width {
+                width: 100%;
+            }
+        }
+
+        /* Debug styles */
+        .debug-info {
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px dashed #666;
+            border-radius: 4px;
+        }
         </style>
         <?php
     }
@@ -3279,12 +3376,14 @@ class VSS_Vendor {
     }
 
     /**
-     * Render approval section
+     * Render approval section with better visibility and status feedback
+     * Replace the existing render_approval_section method with this updated version
      */
     private static function render_approval_section( $order, $type ) {
         $type_label = $type === 'mockup' ? __( 'Mockup', 'vss' ) : __( 'Production Files', 'vss' );
         $files = get_post_meta( $order->get_id(), '_vss_' . $type . '_files', true );
         $status = get_post_meta( $order->get_id(), '_vss_' . $type . '_status', true );
+        $order_status = $order->get_status();
         ?>
         <div class="vss-approval-section">
             <h4><?php echo esc_html( $type_label ); ?> <?php esc_html_e( 'Approval', 'vss' ); ?></h4>
@@ -3293,35 +3392,101 @@ class VSS_Vendor {
                 <div class="approval-status">
                     <p><strong><?php esc_html_e( 'Status:', 'vss' ); ?></strong>
                         <span class="status-<?php echo esc_attr( $status ); ?>">
-                            <?php echo esc_html( ucfirst( $status ) ); ?>
+                            <?php
+                            $status_labels = [
+                                'pending' => __( 'Pending Customer Review', 'vss' ),
+                                'approved' => __( 'Approved', 'vss' ),
+                                'disapproved' => __( 'Disapproved - Revision Needed', 'vss' ),
+                            ];
+                            echo esc_html( $status_labels[ $status ] ?? ucfirst( $status ) );
+                            ?>
                         </span>
                     </p>
 
                     <h5><?php esc_html_e( 'Submitted Files:', 'vss' ); ?></h5>
                     <ul class="approval-files">
                         <?php foreach ( $files as $file_url ) : ?>
-                            <li><a href="<?php echo esc_url( $file_url ); ?>" target="_blank"><?php echo esc_html( basename( $file_url ) ); ?></a></li>
+                            <li>
+                                <a href="<?php echo esc_url( $file_url ); ?>" target="_blank">
+                                    <span class="dashicons dashicons-media-default"></span>
+                                    <?php echo esc_html( basename( $file_url ) ); ?>
+                                </a>
+                            </li>
                         <?php endforeach; ?>
                     </ul>
+
+                    <?php if ( $status === 'disapproved' ) : ?>
+                        <?php
+                        $disapproval_reason = get_post_meta( $order->get_id(), '_vss_' . $type . '_disapproval_reason', true );
+                        if ( $disapproval_reason ) : ?>
+                            <div class="disapproval-reason">
+                                <strong><?php esc_html_e( 'Customer Feedback:', 'vss' ); ?></strong>
+                                <p><?php echo esc_html( $disapproval_reason ); ?></p>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            <?php else : ?>
+                <p class="no-approval-info">
+                    <?php printf( __( 'No %s files have been submitted yet.', 'vss' ), strtolower( $type_label ) ); ?>
+                </p>
+            <?php endif; ?>
+
+            <?php
+            // Show upload form conditions
+            $can_upload = false;
+            $message = '';
+
+            if ( ! in_array( $order_status, [ 'processing', 'pending' ] ) ) {
+                $message = sprintf(
+                    __( '%s can be uploaded when the order is in "Processing" status. Current status: %s', 'vss' ),
+                    $type_label,
+                    '<strong>' . wc_get_order_status_name( $order_status ) . '</strong>'
+                );
+            } elseif ( $status === 'approved' ) {
+                $message = sprintf( __( '%s has been approved by the customer.', 'vss' ), $type_label );
+            } elseif ( $status === 'pending' ) {
+                $message = __( 'Waiting for customer review. You will be notified once the customer responds.', 'vss' );
+            } else {
+                // Can upload if: processing/pending status AND (no status OR disapproved)
+                $can_upload = true;
+            }
+
+            if ( ! $can_upload && $message ) : ?>
+                <div class="vss-notice vss-notice-info">
+                    <p><?php echo wp_kses_post( $message ); ?></p>
                 </div>
             <?php endif; ?>
 
-            <?php if ( $order->has_status( 'processing' ) && ( ! $status || $status === 'disapproved' ) ) : ?>
+            <?php if ( $can_upload ) : ?>
                 <form method="post" enctype="multipart/form-data" class="vss-approval-form">
                     <?php wp_nonce_field( 'vss_approval_submission' ); ?>
                     <input type="hidden" name="vss_fe_action" value="send_<?php echo esc_attr( $type ); ?>_for_approval">
                     <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
 
-                    <label for="approval_files_<?php echo esc_attr( $type ); ?>">
-                        <?php printf( __( 'Upload %s Files:', 'vss' ), $type_label ); ?>
-                    </label>
-                    <input type="file"
-                           name="approval_files[]"
-                           id="approval_files_<?php echo esc_attr( $type ); ?>"
-                           multiple
-                           accept="image/*,.pdf"
-                           required>
-                    <p class="description"><?php esc_html_e( 'Select multiple files (images or PDFs) to upload.', 'vss' ); ?></p>
+                    <div class="upload-section">
+                        <label for="approval_files_<?php echo esc_attr( $type ); ?>">
+                            <?php
+                            if ( $status === 'disapproved' ) {
+                                printf( __( 'Upload Revised %s Files:', 'vss' ), $type_label );
+                            } else {
+                                printf( __( 'Upload %s Files:', 'vss' ), $type_label );
+                            }
+                            ?>
+                            <span class="required">*</span>
+                        </label>
+
+                        <input type="file"
+                               name="approval_files[]"
+                               id="approval_files_<?php echo esc_attr( $type ); ?>"
+                               multiple
+                               accept="image/*,.pdf"
+                               required>
+
+                        <p class="description">
+                            <?php esc_html_e( 'Select multiple files (images or PDFs) to upload. Accepted formats: JPG, PNG, GIF, PDF', 'vss' ); ?>
+                        </p>
+                    </div>
 
                     <input type="submit"
                            value="<?php printf( esc_attr__( 'Submit %s for Approval', 'vss' ), $type_label ); ?>"
@@ -3329,98 +3494,116 @@ class VSS_Vendor {
                 </form>
             <?php endif; ?>
         </div>
+
+        <style>
+        .vss-approval-section .approval-status {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .vss-approval-section .status-pending {
+            color: #f57c00;
+            background: #fff3e0;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875em;
+            font-weight: 500;
+        }
+
+        .vss-approval-section .status-approved {
+            color: #2e7d32;
+            background: #e8f5e9;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875em;
+            font-weight: 500;
+        }
+
+        .vss-approval-section .status-disapproved {
+            color: #c62828;
+            background: #ffebee;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875em;
+            font-weight: 500;
+        }
+
+        .vss-approval-section .approval-files {
+            list-style: none;
+            padding-left: 0;
+            margin: 10px 0;
+        }
+
+        .vss-approval-section .approval-files li {
+            margin: 5px 0;
+        }
+
+        .vss-approval-section .approval-files a {
+            text-decoration: none;
+            color: #2271b1;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .vss-approval-section .approval-files a:hover {
+            text-decoration: underline;
+        }
+
+        .vss-approval-section .disapproval-reason {
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            border-left: 4px solid #c62828;
+        }
+
+        .vss-approval-section .upload-section {
+            margin: 20px 0;
+        }
+
+        .vss-approval-section .upload-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .vss-approval-section input[type="file"] {
+            display: block;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            width: 100%;
+            background: #fafafa;
+            cursor: pointer;
+        }
+
+        .vss-approval-section input[type="file"]:hover {
+            border-color: #2271b1;
+            background: #f0f7ff;
+        }
+
+        .vss-approval-section .description {
+            color: #666;
+            font-size: 0.9em;
+            margin: 5px 0;
+        }
+
+        .no-approval-info {
+            color: #666;
+            font-style: italic;
+        }
+        </style>
         <?php
     }
 
     /**
-     * Render costs section
-     */
-    private static function render_costs_section( $order ) {
-        $costs = get_post_meta( $order->get_id(), '_vss_order_costs', true );
-        $costs = wp_parse_args( $costs, [
-            'material_cost' => 0,
-            'labor_cost' => 0,
-            'shipping_cost' => 0,
-            'other_cost' => 0,
-            'total_cost' => 0,
-        ] );
-        ?>
-        <div class="vss-costs-section">
-            <h4><?php esc_html_e( 'Order Costs', 'vss' ); ?></h4>
-
-            <form method="post" class="vss-costs-form">
-                <?php wp_nonce_field( 'vss_save_costs' ); ?>
-                <input type="hidden" name="vss_fe_action" value="save_costs">
-                <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-
-                <div class="costs-grid">
-                    <div class="cost-item">
-                        <label for="material_cost"><?php esc_html_e( 'Material Cost:', 'vss' ); ?></label>
-                        <input type="number"
-                               name="material_cost"
-                               id="material_cost"
-                               value="<?php echo esc_attr( $costs['material_cost'] ); ?>"
-                               step="0.01"
-                               min="0">
-                    </div>
-
-                    <div class="cost-item">
-                        <label for="labor_cost"><?php esc_html_e( 'Labor Cost:', 'vss' ); ?></label>
-                        <input type="number"
-                               name="labor_cost"
-                               id="labor_cost"
-                               value="<?php echo esc_attr( $costs['labor_cost'] ); ?>"
-                               step="0.01"
-                               min="0">
-                    </div>
-
-                    <div class="cost-item">
-                        <label for="shipping_cost"><?php esc_html_e( 'Shipping Cost:', 'vss' ); ?></label>
-                        <input type="number"
-                               name="shipping_cost"
-                               id="shipping_cost"
-                               value="<?php echo esc_attr( $costs['shipping_cost'] ); ?>"
-                               step="0.01"
-                               min="0">
-                    </div>
-
-                    <div class="cost-item">
-                        <label for="other_cost"><?php esc_html_e( 'Other Cost:', 'vss' ); ?></label>
-                        <input type="number"
-                               name="other_cost"
-                               id="other_cost"
-                               value="<?php echo esc_attr( $costs['other_cost'] ); ?>"
-                               step="0.01"
-                               min="0">
-                    </div>
-                </div>
-
-                <div class="total-cost">
-                    <strong><?php esc_html_e( 'Total Cost:', 'vss' ); ?> <span id="total_display"><?php echo wc_price( $costs['total_cost'] ); ?></span></strong>
-                </div>
-
-                <input type="submit" value="<?php esc_attr_e( 'Save Costs', 'vss' ); ?>" class="button button-primary">
-            </form>
-        </div>
-
-        <script>
-        jQuery(document).ready(function($) {
-            function updateTotal() {
-                var total = 0;
-                $('.cost-item input[type="number"]').each(function() {
-                    total += parseFloat($(this).val()) || 0;
-                });
-                $('#total_display').text('<?php echo get_woocommerce_currency_symbol(); ?>' + total.toFixed(2));
-            }
-
-            $('.cost-item input[type="number"]').on('input', updateTotal);
-        });
-        </script>
-        <?php
-    }
-
-    /**
-     * Render shipping section
+     * Render shipping section with better visibility
+     * Replace the existing render_shipping_section method with this updated version
      */
     private static function render_shipping_section( $order ) {
         $tracking_number = get_post_meta( $order->get_id(), '_vss_tracking_number', true );
@@ -3442,39 +3625,119 @@ class VSS_Vendor {
                 </div>
             <?php endif; ?>
 
-            <?php if ( $order->has_status( 'processing' ) ) : ?>
-                <form method="post" class="vss-shipping-form">
-                    <?php wp_nonce_field( 'vss_save_tracking' ); ?>
-                    <input type="hidden" name="vss_fe_action" value="save_tracking">
-                    <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-
-                    <div class="tracking-fields">
-                        <div class="field-group">
-                            <label for="tracking_number"><?php esc_html_e( 'Tracking Number:', 'vss' ); ?></label>
-                            <input type="text"
-                                   name="tracking_number"
-                                   id="tracking_number"
-                                   value="<?php echo esc_attr( $tracking_number ); ?>"
-                                   placeholder="<?php esc_attr_e( 'Enter tracking number', 'vss' ); ?>">
-                        </div>
-
-                        <div class="field-group">
-                            <label for="tracking_carrier"><?php esc_html_e( 'Carrier:', 'vss' ); ?></label>
-                            <select name="tracking_carrier" id="tracking_carrier">
-                                <option value=""><?php esc_html_e( 'Select Carrier', 'vss' ); ?></option>
-                                <option value="ups" <?php selected( $tracking_carrier, 'ups' ); ?>>UPS</option>
-                                <option value="fedex" <?php selected( $tracking_carrier, 'fedex' ); ?>>FedEx</option>
-                                <option value="usps" <?php selected( $tracking_carrier, 'usps' ); ?>>USPS</option>
-                                <option value="dhl" <?php selected( $tracking_carrier, 'dhl' ); ?>>DHL</option>
-                                <option value="other" <?php selected( $tracking_carrier, 'other' ); ?>><?php esc_html_e( 'Other', 'vss' ); ?></option>
-                            </select>
-                        </div>
+            <?php
+            // Show form for processing orders OR if no tracking info exists yet
+            if ( $order->has_status( 'processing' ) || ! $tracking_number ) :
+            ?>
+                <?php if ( ! $order->has_status( 'processing' ) && ! $tracking_number ) : ?>
+                    <div class="vss-notice vss-notice-info">
+                        <p><?php esc_html_e( 'Tracking information can be added when the order is in "Processing" status.', 'vss' ); ?></p>
+                        <p><?php printf( __( 'Current order status: %s', 'vss' ), '<strong>' . wc_get_order_status_name( $order->get_status() ) . '</strong>' ); ?></p>
                     </div>
+                <?php elseif ( $order->has_status( 'processing' ) ) : ?>
+                    <form method="post" class="vss-shipping-form">
+                        <?php wp_nonce_field( 'vss_save_tracking' ); ?>
+                        <input type="hidden" name="vss_fe_action" value="save_tracking">
+                        <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
 
-                    <input type="submit" value="<?php esc_attr_e( 'Save Tracking & Mark as Shipped', 'vss' ); ?>" class="button button-primary">
-                </form>
+                        <div class="tracking-fields">
+                            <div class="field-group">
+                                <label for="tracking_number"><?php esc_html_e( 'Tracking Number:', 'vss' ); ?> <span class="required">*</span></label>
+                                <input type="text"
+                                       name="tracking_number"
+                                       id="tracking_number"
+                                       value="<?php echo esc_attr( $tracking_number ); ?>"
+                                       placeholder="<?php esc_attr_e( 'Enter tracking number', 'vss' ); ?>"
+                                       required>
+                            </div>
+
+                            <div class="field-group">
+                                <label for="tracking_carrier"><?php esc_html_e( 'Carrier:', 'vss' ); ?></label>
+                                <select name="tracking_carrier" id="tracking_carrier">
+                                    <option value=""><?php esc_html_e( 'Select Carrier', 'vss' ); ?></option>
+                                    <option value="ups" <?php selected( $tracking_carrier, 'ups' ); ?>>UPS</option>
+                                    <option value="fedex" <?php selected( $tracking_carrier, 'fedex' ); ?>>FedEx</option>
+                                    <option value="usps" <?php selected( $tracking_carrier, 'usps' ); ?>>USPS</option>
+                                    <option value="dhl" <?php selected( $tracking_carrier, 'dhl' ); ?>>DHL</option>
+                                    <option value="other" <?php selected( $tracking_carrier, 'other' ); ?>><?php esc_html_e( 'Other', 'vss' ); ?></option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <p class="vss-form-notice">
+                            <strong><?php esc_html_e( 'Note:', 'vss' ); ?></strong>
+                            <?php esc_html_e( 'Adding tracking information will mark this order as "Shipped".', 'vss' ); ?>
+                        </p>
+
+                        <input type="submit" value="<?php esc_attr_e( 'Save Tracking & Mark as Shipped', 'vss' ); ?>" class="button button-primary">
+                    </form>
+                <?php endif; ?>
+            <?php else : ?>
+                <?php if ( ! $tracking_number ) : ?>
+                    <p class="no-tracking-info"><?php esc_html_e( 'No tracking information available yet.', 'vss' ); ?></p>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
+
+        <style>
+        .vss-shipping-section .tracking-fields {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .vss-shipping-section .field-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .vss-shipping-section .field-group input,
+        .vss-shipping-section .field-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .vss-shipping-section .required {
+            color: #d32f2f;
+        }
+
+        .vss-notice {
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .vss-notice-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            color: #1976d2;
+        }
+
+        .vss-form-notice {
+            background: #fff3cd;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border: 1px solid #ffc107;
+        }
+
+        .no-tracking-info {
+            color: #666;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .vss-shipping-section .tracking-fields {
+                grid-template-columns: 1fr;
+            }
+        }
+        </style>
         <?php
     }
 
