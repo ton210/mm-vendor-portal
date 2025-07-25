@@ -256,34 +256,38 @@ class VSS_Vendor {
 
             // Render navigation
             self::render_vendor_navigation( $action );
-
-            switch ( $action ) {
-                case 'orders':
-                    self::render_frontend_orders_list();
-                    break;
-
-                case 'view_order':
-                    if ( $order_id ) {
-                        self::render_frontend_order_details( $order_id );
-                    } else {
-                        self::render_error_message( __( 'Invalid order ID.', 'vss' ) );
-                    }
-                    break;
-
-                case 'reports':
-                    self::render_vendor_reports();
-                    break;
-
-                case 'settings':
-                    self::render_vendor_settings();
-                    break;
-
-                case 'dashboard':
-                default:
-                    self::render_vendor_dashboard();
-                    break;
-            }
             ?>
+
+            <div class="vss-content-wrapper">
+                <?php
+                switch ( $action ) {
+                    case 'orders':
+                        self::render_frontend_orders_list();
+                        break;
+
+                    case 'view_order':
+                        if ( $order_id ) {
+                            self::render_frontend_order_details( $order_id );
+                        } else {
+                            self::render_error_message( __( 'Invalid order ID.', 'vss' ) );
+                        }
+                        break;
+
+                    case 'reports':
+                        self::render_vendor_reports();
+                        break;
+
+                    case 'settings':
+                        self::render_vendor_settings();
+                        break;
+
+                    case 'dashboard':
+                    default:
+                        self::render_vendor_dashboard();
+                        break;
+                }
+                ?>
+            </div>
         </div>
         <?php
         return ob_get_clean();
@@ -294,27 +298,34 @@ class VSS_Vendor {
      */
     private static function render_vendor_navigation( $current_action ) {
         ?>
-        <div class="vss-vendor-navigation">
-            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'dashboard', get_permalink() ) ); ?>"
-               class="<?php echo $current_action === 'dashboard' ? 'active' : ''; ?>">
-                <?php esc_html_e( 'Dashboard', 'vss' ); ?>
-            </a>
-            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>"
-               class="<?php echo $current_action === 'orders' ? 'active' : ''; ?>">
-                <?php esc_html_e( 'My Orders', 'vss' ); ?>
-            </a>
-            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'reports', get_permalink() ) ); ?>"
-               class="<?php echo $current_action === 'reports' ? 'active' : ''; ?>">
-                <?php esc_html_e( 'Reports', 'vss' ); ?>
-            </a>
-            <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'settings', get_permalink() ) ); ?>"
-               class="<?php echo $current_action === 'settings' ? 'active' : ''; ?>">
-                <?php esc_html_e( 'Settings', 'vss' ); ?>
-            </a>
-            <a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" class="logout">
-                <?php esc_html_e( 'Logout', 'vss' ); ?>
-            </a>
-        </div>
+        <nav class="vss-vendor-navigation">
+            <div class="vss-vendor-navigation-inner">
+                <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'dashboard', get_permalink() ) ); ?>"
+                   class="<?php echo $current_action === 'dashboard' ? 'active' : ''; ?>">
+                    <span class="dashicons dashicons-dashboard"></span>
+                    <?php esc_html_e( 'Dashboard', 'vss' ); ?>
+                </a>
+                <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>"
+                   class="<?php echo $current_action === 'orders' ? 'active' : ''; ?>">
+                    <span class="dashicons dashicons-cart"></span>
+                    <?php esc_html_e( 'My Orders', 'vss' ); ?>
+                </a>
+                <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'reports', get_permalink() ) ); ?>"
+                   class="<?php echo $current_action === 'reports' ? 'active' : ''; ?>">
+                    <span class="dashicons dashicons-chart-area"></span>
+                    <?php esc_html_e( 'Reports', 'vss' ); ?>
+                </a>
+                <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'settings', get_permalink() ) ); ?>"
+                   class="<?php echo $current_action === 'settings' ? 'active' : ''; ?>">
+                    <span class="dashicons dashicons-admin-generic"></span>
+                    <?php esc_html_e( 'Settings', 'vss' ); ?>
+                </a>
+                <a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" class="logout">
+                    <span class="dashicons dashicons-exit"></span>
+                    <?php esc_html_e( 'Logout', 'vss' ); ?>
+                </a>
+            </div>
+        </nav>
         <?php
     }
 
@@ -1468,23 +1479,45 @@ class VSS_Vendor {
     private static function render_vendor_dashboard() {
         $vendor_id = get_current_user_id();
         $stats = self::get_vendor_statistics( $vendor_id );
+        $user = wp_get_current_user();
         ?>
-        <h1><?php esc_html_e( 'Vendor Dashboard', 'vss' ); ?></h1>
 
+        <!-- Page Header -->
+        <div class="vss-page-header">
+            <h1><?php printf( __( 'Welcome back, %s!', 'vss' ), esc_html( $user->display_name ) ); ?></h1>
+            <p><?php esc_html_e( 'Here\'s what\'s happening with your orders today.', 'vss' ); ?></p>
+        </div>
+
+        <!-- Stats Dashboard -->
         <div class="vss-stat-boxes">
             <div class="vss-stat-box-fe">
+                <div class="stat-icon">
+                    <span class="dashicons dashicons-admin-generic"></span>
+                </div>
                 <span class="stat-number-fe"><?php echo esc_html( $stats['processing'] ); ?></span>
                 <span class="stat-label-fe"><?php esc_html_e( 'Orders in Processing', 'vss' ); ?></span>
             </div>
+
             <div class="vss-stat-box-fe <?php echo $stats['late'] > 0 ? 'is-critical' : ''; ?>">
+                <div class="stat-icon">
+                    <span class="dashicons dashicons-warning"></span>
+                </div>
                 <span class="stat-number-fe"><?php echo esc_html( $stats['late'] ); ?></span>
                 <span class="stat-label-fe"><?php esc_html_e( 'Orders Late', 'vss' ); ?></span>
             </div>
+
             <div class="vss-stat-box-fe">
+                <div class="stat-icon">
+                    <span class="dashicons dashicons-yes-alt"></span>
+                </div>
                 <span class="stat-number-fe"><?php echo esc_html( $stats['shipped_this_month'] ); ?></span>
                 <span class="stat-label-fe"><?php esc_html_e( 'Shipped This Month', 'vss' ); ?></span>
             </div>
+
             <div class="vss-stat-box-fe">
+                <div class="stat-icon">
+                    <span class="dashicons dashicons-money-alt"></span>
+                </div>
                 <span class="stat-number-fe"><?php echo wc_price( $stats['earnings_this_month'] ); ?></span>
                 <span class="stat-label-fe"><?php esc_html_e( 'Earnings This Month', 'vss' ); ?></span>
             </div>
@@ -1505,15 +1538,19 @@ class VSS_Vendor {
             <h3><?php esc_html_e( 'Quick Actions', 'vss' ); ?></h3>
             <div class="vss-action-buttons">
                 <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>" class="button">
+                    <span class="dashicons dashicons-visibility"></span>
                     <?php esc_html_e( 'View All Orders', 'vss' ); ?>
                 </a>
                 <a href="<?php echo esc_url( admin_url( 'media-new.php' ) ); ?>" class="button" target="_blank">
+                    <span class="dashicons dashicons-upload"></span>
                     <?php esc_html_e( 'Upload Files', 'vss' ); ?>
                 </a>
                 <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'reports', get_permalink() ) ); ?>" class="button">
+                    <span class="dashicons dashicons-analytics"></span>
                     <?php esc_html_e( 'View Reports', 'vss' ); ?>
                 </a>
                 <a href="<?php echo esc_url( home_url( '/contact/' ) ); ?>" class="button">
+                    <span class="dashicons dashicons-email-alt"></span>
                     <?php esc_html_e( 'Contact Support', 'vss' ); ?>
                 </a>
             </div>
@@ -1535,7 +1572,13 @@ class VSS_Vendor {
         ] );
         ?>
         <div class="vss-recent-orders">
-            <h3><?php esc_html_e( 'Recent Orders', 'vss' ); ?></h3>
+            <div class="vss-recent-orders-header">
+                <h3><?php esc_html_e( 'Recent Orders', 'vss' ); ?></h3>
+                <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>" class="vss-view-all">
+                    <?php esc_html_e( 'View all orders →', 'vss' ); ?>
+                </a>
+            </div>
+
             <?php if ( ! empty( $orders ) ) : ?>
                 <table class="vss-orders-table">
                     <thead>
@@ -1543,6 +1586,8 @@ class VSS_Vendor {
                             <th><?php esc_html_e( 'Order', 'vss' ); ?></th>
                             <th><?php esc_html_e( 'Date', 'vss' ); ?></th>
                             <th><?php esc_html_e( 'Status', 'vss' ); ?></th>
+                            <th><?php esc_html_e( 'Customer', 'vss' ); ?></th>
+                            <th><?php esc_html_e( 'Items', 'vss' ); ?></th>
                             <th><?php esc_html_e( 'Ship Date', 'vss' ); ?></th>
                             <th><?php esc_html_e( 'Actions', 'vss' ); ?></th>
                         </tr>
@@ -1553,13 +1598,14 @@ class VSS_Vendor {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-                <p class="vss-view-all">
-                    <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'orders', get_permalink() ) ); ?>">
-                        <?php esc_html_e( 'View all orders →', 'vss' ); ?>
-                    </a>
-                </p>
             <?php else : ?>
-                <p><?php esc_html_e( 'No orders found.', 'vss' ); ?></p>
+                <div class="vss-empty-state">
+                    <div class="vss-empty-state-icon">
+                        <span class="dashicons dashicons-cart"></span>
+                    </div>
+                    <h3><?php esc_html_e( 'No orders yet', 'vss' ); ?></h3>
+                    <p><?php esc_html_e( 'Your orders will appear here once you receive them.', 'vss' ); ?></p>
+                </div>
             <?php endif; ?>
         </div>
         <?php
@@ -1596,11 +1642,15 @@ class VSS_Vendor {
             </td>
             <td><?php echo esc_html( $order->get_date_created()->date_i18n( get_option( 'date_format' ) ) ); ?></td>
             <td>
-                <?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?>
+                <span class="status-badge <?php echo esc_attr( $order->get_status() ); ?>">
+                    <?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?>
+                </span>
                 <?php if ( $is_late ) : ?>
                     <span class="vss-order-late-indicator"><?php esc_html_e( 'LATE', 'vss' ); ?></span>
                 <?php endif; ?>
             </td>
+            <td><?php echo esc_html( $order->get_formatted_billing_full_name() ); ?></td>
+            <td><?php echo esc_html( $order->get_item_count() ); ?></td>
             <td>
                 <?php if ( $ship_date ) : ?>
                     <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $ship_date ) ) ); ?>
@@ -2160,7 +2210,10 @@ class VSS_Vendor {
         <div class="vss-order-details-wrapper vss-single-page-layout">
             <div class="vss-order-header">
                 <h2><?php printf( __( 'Order #%s Details', 'vss' ), esc_html( $order->get_order_number() ) ); ?></h2>
-                <p><a href="<?php echo esc_url( $portal_url ); ?>" class="button button-secondary">&larr; <?php esc_html_e( 'Back to Dashboard', 'vss' ); ?></a></p>
+                <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'dashboard', $portal_url ) ); ?>" class="button">
+                    <span class="dashicons dashicons-arrow-left-alt"></span>
+                    <?php esc_html_e( 'Back to Dashboard', 'vss' ); ?>
+                </a>
             </div>
 
             <?php

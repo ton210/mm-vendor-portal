@@ -1,745 +1,673 @@
 /* =========================================================
-   Vendor Order Manager - Complete Frontend Styles
-   Version: 7.0.0
-   Description: Modern, responsive vendor portal frontend styles
-   ========================================================= */
+   Vendor Order Manager - Improved Frontend Styles
+   Version: 7.1.0
+   Description: Enhanced layout improvements for vendor portal
+   ========================================================= */
 
 /* ==========================================================================
-   Base Styles & Reset
-   ========================================================================== */
+   Layout Structure Improvements
+   ========================================================================== */
 
+/* Remove default padding from portal wrapper */
 .vss-frontend-portal {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-    color: #333;
-    line-height: 1.6;
-    margin: 0 auto;
-    max-width: 1400px;
-    padding: 20px;
+    padding: 0;
+    max-width: none;
+    background: #f0f2f5;
+    min-height: 100vh;
 }
 
-.vss-frontend-portal * {
-    box-sizing: border-box;
-}
-
-.vss-frontend-portal h1,
-.vss-frontend-portal h2,
-.vss-frontend-portal h3,
-.vss-frontend-portal h4,
-.vss-frontend-portal h5,
-.vss-frontend-portal h6 {
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-weight: 600;
-    color: #1a1a1a;
-}
-
-.vss-frontend-portal h1 { font-size: 2.5em; }
-.vss-frontend-portal h2 { font-size: 2em; }
-.vss-frontend-portal h3 { font-size: 1.75em; }
-.vss-frontend-portal h4 { font-size: 1.5em; }
-
-.vss-frontend-portal p {
-    margin-bottom: 15px;
-}
-
-.vss-frontend-portal a {
-    color: #2271b1;
-    text-decoration: none;
-    transition: all 0.3s ease;
-}
-
-.vss-frontend-portal a:hover {
-    color: #135e96;
+/* Content wrapper for proper spacing */
+.vss-content-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px;
 }
 
 /* ==========================================================================
-   Vendor Navigation Bar
-   ========================================================================== */
+   Enhanced Navigation Bar
+   ========================================================================== */
 
 .vss-vendor-navigation {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    margin: -20px -20px 30px -20px;
-    padding: 0 20px;
-    background: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.vss-vendor-navigation-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
 }
 
 .vss-vendor-navigation a {
-    display: flex;
-    align-items: center;
-    padding: 20px 25px;
-    color: #4b5563;
-    font-weight: 500;
-    font-size: 15px;
-    text-decoration: none;
-    position: relative;
-    transition: all 0.3s ease;
-    border-bottom: 3px solid transparent;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 24px;
+    color: #4b5563;
+    font-weight: 500;
+    font-size: 15px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
 }
 
 .vss-vendor-navigation a:hover {
-    color: #1f2937;
-    background-color: #f9fafb;
+    color: #1f2937;
+    background-color: #f9fafb;
 }
 
 .vss-vendor-navigation a.active {
-    color: #2271b1;
-    border-bottom-color: #2271b1;
-    background-color: #f0f7ff;
+    color: #2271b1;
+    border-bottom-color: #2271b1;
+    background-color: rgba(34, 113, 177, 0.05);
+}
+
+.vss-vendor-navigation a .dashicons {
+    font-size: 18px;
 }
 
 .vss-vendor-navigation a.logout {
-    margin-left: auto;
-    background-color: #ef4444;
-    color: white;
-    border-radius: 6px;
-    padding: 10px 20px;
-    border: none;
+    margin-left: auto;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 10px 24px;
+    margin: 10px 0;
+    border: none;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 }
 
 .vss-vendor-navigation a.logout:hover {
-    background-color: #dc2626;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
 /* ==========================================================================
-   Dashboard Stats Boxes
-   ========================================================================== */
+   Page Header Section
+   ========================================================================== */
+
+.vss-page-header {
+    margin-bottom: 32px;
+}
+
+.vss-page-header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 8px 0;
+}
+
+.vss-page-header p {
+    font-size: 16px;
+    color: #6b7280;
+    margin: 0;
+}
+
+/* ==========================================================================
+   Enhanced Dashboard Stats
+   ========================================================================== */
 
 .vss-stat-boxes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 40px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
 }
 
 .vss-stat-box-fe {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 25px;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 28px;
+    text-align: left;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .vss-stat-box-fe::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: linear-gradient(90deg, #2271b1 0%, #135e96 100%);
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #2271b1 0%, #60a5fa 100%);
 }
 
 .vss-stat-box-fe:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
 }
 
 .vss-stat-box-fe.is-critical::before {
-    background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+    background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+}
+
+/* Stat icon */
+.vss-stat-box-fe .stat-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-size: 24px;
+    color: #4f46e5;
+}
+
+.vss-stat-box-fe.is-critical .stat-icon {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
 }
 
 .vss-stat-box-fe .stat-number-fe {
-    font-size: 3em;
-    font-weight: 700;
-    color: #1f2937;
-    display: block;
-    margin-bottom: 10px;
+    font-size: 36px;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1;
+    margin: 0 0 8px 0;
+    display: block;
 }
 
 .vss-stat-box-fe.is-critical .stat-number-fe {
-    color: #ef4444;
+    color: #dc2626;
 }
 
 .vss-stat-box-fe .stat-label-fe {
-    font-size: 1em;
-    color: #6b7280;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+}
+
+/* Trend indicator */
+.vss-stat-box-fe .stat-trend {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.vss-stat-box-fe .stat-trend.positive {
+    color: #10b981;
+}
+
+.vss-stat-box-fe .stat-trend.negative {
+    color: #ef4444;
 }
 
 /* ==========================================================================
-   Quick Actions Section
-   ========================================================================== */
+   Enhanced Quick Actions
+   ========================================================================== */
 
 .vss-quick-actions {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 30px;
-    margin-bottom: 30px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .vss-quick-actions h3 {
-    margin-bottom: 20px;
-    color: #1f2937;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 24px 0;
+    color: #1f2937;
 }
 
 .vss-action-buttons {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
 }
 
 .vss-action-buttons .button {
-    padding: 12px 24px;
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
+    padding: 16px 24px;
+    background: #f9fafb;
+    color: #374151;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
 }
 
 .vss-action-buttons .button:hover {
-    background: #2271b1;
-    color: white;
-    border-color: #2271b1;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(34, 113, 177, 0.3);
+    background: linear-gradient(135deg, #2271b1 0%, #1e5e96 100%);
+    color: white;
+    border-color: #2271b1;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(34, 113, 177, 0.2);
+}
+
+.vss-action-buttons .button .dashicons {
+    font-size: 18px;
 }
 
 /* ==========================================================================
-   Status Filters & Search
-   ========================================================================== */
+   Enhanced Recent Orders Section
+   ========================================================================== */
 
-.vss-status-filters {
-    display: flex;
-    gap: 10px;
-    margin: 30px 0 20px 0;
-    padding: 0;
-    list-style: none;
-    flex-wrap: wrap;
+.vss-recent-orders {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    margin-bottom: 32px;
 }
 
-.vss-status-filters li {
-    margin: 0;
+.vss-recent-orders-header {
+    padding: 24px 32px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.vss-status-filters a {
-    display: inline-flex;
-    align-items: center;
-    padding: 8px 16px;
-    background: #f3f4f6;
-    color: #4b5563;
-    border-radius: 25px;
-    font-weight: 500;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
+.vss-recent-orders-header h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
 }
 
-.vss-status-filters a:hover {
-    background: #e5e7eb;
-    color: #1f2937;
+.vss-recent-orders .vss-view-all {
+    color: #2271b1;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
-.vss-status-filters a.current {
-    background: #2271b1;
-    color: white;
-    border-color: #2271b1;
-}
-
-.vss-status-filters .count {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 2px 8px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.vss-search-form {
-    margin: 20px 0 30px 0;
-    display: flex;
-    gap: 15px;
-    max-width: 500px;
-}
-
-.vss-search-form input[type="search"] {
-    flex: 1;
-    padding: 12px 20px;
-    border: 2px solid #e5e7eb;
-    border-radius: 10px;
-    font-size: 16px;
-    transition: all 0.3s ease;
-    background: white;
-}
-
-.vss-search-form input[type="search"]:focus {
-    outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
-}
-
-.vss-search-form button {
-    padding: 12px 30px;
-    background: #2271b1;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.vss-search-form button:hover {
-    background: #135e96;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(34, 113, 177, 0.3);
+.vss-recent-orders .vss-view-all:hover {
+    color: #1e5e96;
+    transform: translateX(4px);
 }
 
 /* ==========================================================================
-   Orders Table
-   ========================================================================== */
+   Enhanced Orders Table
+   ========================================================================== */
 
 .vss-orders-table {
-    width: 100%;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
+    width: 100%;
+    background: white;
+    border: none;
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: none;
+    margin-bottom: 0;
 }
 
 .vss-orders-table thead {
-    background: #f9fafb;
+    background: #f9fafb;
 }
 
 .vss-orders-table th {
-    padding: 16px 20px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #4b5563;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 24px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .vss-orders-table td {
-    padding: 20px;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
 }
 
 .vss-orders-table tbody tr {
-    transition: all 0.2s ease;
-    cursor: pointer;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background: white;
 }
 
 .vss-orders-table tbody tr:hover {
-    background: #f9fafb;
+    background: #f9fafb;
 }
 
 .vss-orders-table tbody tr:last-child td {
-    border-bottom: none;
+    border-bottom: none;
 }
 
-/* Order Status Row Colors */
-.vss-orders-table tbody tr.vss-status-pending {
-    background-color: #fffbeb;
+/* Order link styling */
+.vss-orders-table a {
+    color: #2271b1;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
 }
 
-.vss-orders-table tbody tr.vss-status-processing {
-    background-color: #fef3c7;
+.vss-orders-table a:hover {
+    color: #1e5e96;
+    text-decoration: underline;
 }
 
-.vss-orders-table tbody tr.vss-status-approved {
-    background-color: #d1fae5;
+/* Status badges */
+.vss-orders-table .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.vss-orders-table tbody tr.vss-status-disapproved {
-    background-color: #fee2e2;
+/* Late indicator */
+.vss-order-late-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 8px;
+    text-transform: uppercase;
 }
 
-.vss-orders-table tbody tr.vss-status-shipped {
-    background-color: #dbeafe;
-}
-
-.vss-orders-table tbody tr.vss-status-late {
-    background-color: #fee2e2;
-    position: relative;
-}
-
-.vss-orders-table tbody tr.vss-status-late::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: #ef4444;
-}
-
-/* Order Actions */
+/* Action buttons */
 .vss-order-actions a {
-    display: inline-block;
-    padding: 6px 16px;
-    background: #2271b1;
-    color: white !important;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: #2271b1;
+    color: white !important;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
 }
 
 .vss-order-actions a:hover {
-    background: #135e96;
-    transform: translateY(-2px);
-}
-
-/* Late Indicator Badge */
-.vss-order-late-indicator {
-    display: inline-block;
-    padding: 4px 10px;
-    background: #ef4444;
-    color: white;
-    font-size: 11px;
-    font-weight: 700;
-    border-radius: 4px;
-    margin-left: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    background: #1e5e96;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(34, 113, 177, 0.2);
+    text-decoration: none;
 }
 
 /* ==========================================================================
-   Order Details Page
-   ========================================================================== */
+   Order Details Page Improvements
+   ========================================================================== */
 
 .vss-order-details-wrapper {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: white;
+    border-radius: 16px;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
 }
 
 .vss-order-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+    padding: 32px;
+    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
 }
 
 .vss-order-header h2 {
-    margin: 0;
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1f2937;
 }
 
 .vss-order-header .button {
-    padding: 10px 20px;
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: white;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
 }
 
 .vss-order-header .button:hover {
-    background: #e5e7eb;
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateX(-4px);
 }
 
-/* Order Status Bar */
+/* Enhanced Order Status Bar */
 .vss-order-status-bar {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 30px;
-    padding: 20px;
-    background: #f9fafb;
-    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+    padding: 32px;
+    background: #f9fafb;
+    border-radius: 0;
+    position: relative;
+}
+
+.vss-order-status-bar::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 32px;
+    right: 32px;
+    height: 2px;
+    background: #e5e7eb;
+    z-index: 0;
 }
 
 .vss-order-status-bar .status-item {
-    flex: 1;
-    text-align: center;
-    position: relative;
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
 }
 
 .vss-order-status-bar .status-dot {
-    display: block;
-    width: 30px;
-    height: 30px;
-    margin: 0 auto 10px;
-    background: #e5e7eb;
-    border-radius: 50%;
-    position: relative;
+    display: block;
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 12px;
+    background: white;
+    border: 3px solid #e5e7eb;
+    border-radius: 50%;
+    position: relative;
+    transition: all 0.3s ease;
 }
 
 .vss-order-status-bar .status-item.active .status-dot,
 .vss-order-status-bar .status-item.completed .status-dot {
-    background: #10b981;
+    background: #10b981;
+    border-color: #10b981;
+    transform: scale(1.1);
+}
+
+.vss-order-status-bar .status-item.active .status-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
 }
 
 .vss-order-status-bar .status-label {
-    font-size: 14px;
-    color: #6b7280;
-    font-weight: 500;
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
 }
 
 .vss-order-status-bar .status-item.active .status-label,
 .vss-order-status-bar .status-item.completed .status-label {
-    color: #1f2937;
-    font-weight: 600;
+    color: #1f2937;
+    font-weight: 600;
 }
 
 .vss-order-status-bar .status-late {
-    display: block;
-    color: #ef4444;
-    font-size: 12px;
-    font-weight: 700;
-    margin-top: 5px;
+    display: block;
+    color: #ef4444;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 5px;
+    text-transform: uppercase;
 }
 
 /* ==========================================================================
-   Tab System - Enhanced with Better Visibility and Debugging
-   ========================================================================== */
+   Order Sections Layout
+   ========================================================================== */
 
-.vss-frontend-portal .vss-order-tabs {
-    display: flex;
-    gap: 2px;
-    margin: 30px 0 0 0;
-    border-bottom: 2px solid #e5e7eb;
-    flex-wrap: wrap;
-    position: relative;
-    background: #f9f9f9;
-    padding: 0 20px;
-    border-radius: 8px 8px 0 0;
+.vss-order-sections {
+    padding: 32px;
 }
 
-.vss-order-tabs .nav-tab {
-    display: inline-block;
-    padding: 15px 25px;
-    background: #f1f1f1;
-    color: #6b7280;
-    border: 1px solid #e5e7eb;
-    border-bottom: none;
-    font-weight: 500;
-    font-size: 15px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    margin-bottom: -2px;
-    border-radius: 8px 8px 0 0;
-    position: relative;
-    box-shadow: inset 0 -2px 0 transparent;
+.vss-order-section {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
 
-.vss-order-tabs .nav-tab:hover {
-    color: #1f2937;
-    background: #ffffff;
-    border-color: #d1d5db;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.vss-order-section:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.vss-order-tabs .nav-tab.nav-tab-active,
-.vss-order-tabs .nav-tab-active {
-    color: #2271b1 !important;
-    background: #ffffff !important;
-    border-color: #2271b1 !important;
-    border-bottom: 2px solid #ffffff !important;
-    font-weight: 600 !important;
-    z-index: 10;
-    box-shadow: 0 -2px 0 #2271b1 inset, 0 2px 4px rgba(0,0,0,0.1);
+.vss-section-header {
+    background: #f9fafb;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    cursor: default;
+    position: relative;
+    padding-right: 24px;
 }
 
-/* Tab Content Styling */
-.vss-frontend-portal .vss-tab-content {
-    display: none;
-    padding: 30px 20px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    min-height: 200px;
-    animation: fadeIn 0.3s ease-in-out;
+.vss-section-header::after {
+    display: none;
 }
 
-.vss-tab-content.vss-tab-active {
-    display: block !important;
+.vss-section-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
 }
 
-
-/* Animation for tab content */
-@keyframes fadeIn {
-    from { 
-        opacity: 0; 
-        transform: translateY(10px); 
-    }
-    to { 
-        opacity: 1; 
-        transform: translateY(0); 
-    }
+.vss-section-content {
+    padding: 24px;
+    max-height: none;
 }
 
-/* Loading state for tabs */
-.vss-order-tabs .nav-tab.loading {
-    pointer-events: none;
-    opacity: 0.7;
+/* Two Column Layout */
+.vss-two-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-bottom: 24px;
 }
 
-.vss-order-tabs .nav-tab.loading::after {
-    content: "";
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 12px;
-    height: 12px;
-    border: 2px solid #e5e7eb;
-    border-top: 2px solid #2271b1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+.vss-two-column .vss-column {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 0 !important;
 }
 
-@keyframes spin {
-    0% { transform: translateY(-50%) rotate(0deg); }
-    100% { transform: translateY(-50%) rotate(360deg); }
+/* Overview Grid */
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
 }
 
-/* Focus states for accessibility */
-.vss-order-tabs .nav-tab:focus {
-    outline: 2px solid #2271b1;
-    outline-offset: 2px;
+.overview-section {
+    background: #f9fafb;
+    padding: 24px;
+    border-radius: 8px;
 }
 
-/* Mobile responsive tabs */
-@media (max-width: 768px) {
-    .vss-order-tabs {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        padding: 0 10px;
-    }
-
-    .vss-order-tabs .nav-tab {
-        flex-shrink: 0;
-        padding: 12px 16px;
-        font-size: 14px;
-        min-width: 120px;
-        text-align: center;
-    }
-
-    .vss-tab-content {
-        padding: 20px 15px;
-    }
+.overview-section h4 {
+    margin: 0 0 16px 0;
+    color: #374151;
+    font-size: 16px;
+    font-weight: 600;
 }
 
-/* Debug styles - remove in production */
-.vss-debug .vss-order-tabs {
-    border: 2px dashed red;
+.overview-section p {
+    margin: 8px 0;
+    color: #4b5563;
+    line-height: 1.6;
 }
 
-.vss-debug .vss-order-tabs .nav-tab {
-    border: 1px solid blue;
+.overview-section strong {
+    color: #1f2937;
 }
-
-.vss-debug .vss-tab-content {
-    border: 2px solid green;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .vss-order-tabs .nav-tab {
-        border-width: 2px;
-    }
-    
-    .vss-order-tabs .nav-tab.nav-tab-active {
-        border-width: 3px;
-    }
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    .vss-order-tabs {
-        background: #374151;
-        border-bottom-color: #4b5563;
-    }
-    
-    .vss-order-tabs .nav-tab {
-        background: #4b5563;
-        color: #d1d5db;
-        border-color: #6b7280;
-    }
-    
-    .vss-order-tabs .nav-tab:hover {
-        background: #6b7280;
-        color: #f9fafb;
-    }
-    
-    .vss-order-tabs .nav-tab.nav-tab-active {
-        background: #1f2937 !important;
-        color: #60a5fa !important;
-        border-color: #60a5fa !important;
-    }
-    
-    .vss-tab-content {
-        background: #1f2937;
-        border-color: #4b5563;
-        color: #f9fafb;
-    }
-}
-
-/* Print styles */
-@media print {
-    .vss-order-tabs {
-        display: none;
-    }
-    
-    .vss-tab-content {
-        display: block !important;
-        border: none;
-        padding: 0;
-        margin-bottom: 20px;
-    }
-    
-    .vss-tab-content::before {
-        content: attr(data-tab-title);
-        font-weight: bold;
-        font-size: 18px;
-        display: block;
-        margin-bottom: 10px;
-        border-bottom: 1px solid #000;
-        padding-bottom: 5px;
-    }
-}
-
 
 /* ==========================================================================
-   Forms & Inputs
-   ========================================================================== */
+   Forms and Inputs
+   ========================================================================== */
 
 .vss-form-group {
-    margin-bottom: 25px;
+    margin-bottom: 24px;
 }
 
 .vss-form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: #374151;
-    font-size: 14px;
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+    font-size: 14px;
 }
 
 .vss-form-group input[type="text"],
@@ -749,1126 +677,183 @@
 .vss-form-group input[type="search"],
 .vss-form-group select,
 .vss-form-group textarea {
-    width: 100%;
-    padding: 12px 16px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: all 0.3s ease;
-    background: white;
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: white;
 }
 
 .vss-form-group input:focus,
 .vss-form-group select:focus,
 .vss-form-group textarea:focus {
-    outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
-}
-
-.vss-form-group .description {
-    margin-top: 5px;
-    font-size: 13px;
-    color: #6b7280;
-}
-
-/* Costs Input Form */
-.vss-costs-input-table-fe {
-    width: 100%;
-    margin: 20px 0;
-}
-
-.vss-costs-input-table-fe th,
-.vss-costs-input-table-fe td {
-    padding: 15px;
-    text-align: left;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.vss-costs-input-table-fe th {
-    background: #f9fafb;
-    font-weight: 600;
-    color: #374151;
-}
-
-.vss-costs-input-table-fe input[type="text"] {
-    width: 120px;
-    padding: 8px 12px;
-    border: 2px solid #e5e7eb;
-    border-radius: 6px;
-    text-align: right;
-    font-size: 14px;
-}
-
-.vss-costs-input-table-fe input[type="text"]:focus {
-    outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
-}
-
-.vss-costs-input-table-fe .totals-section {
-    margin-top: 20px;
-    padding: 20px;
-    background: #f9fafb;
-    border-radius: 8px;
-}
-
-.vss-costs-input-table-fe .totals-section p {
-    margin: 10px 0;
-    font-size: 16px;
-}
-
-.vss-costs-input-table-fe .totals-section strong {
-    display: inline-block;
-    min-width: 180px;
-    color: #374151;
-}
-
-#vss-total-cost-display-fe {
-    font-size: 24px;
-    font-weight: 700;
-    color: #2271b1;
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
 }
 
 /* ==========================================================================
-   Production Confirmation Section
-   ========================================================================== */
-
-.vss-production-confirmation-fe {
-    background: #f0f7ff;
-    border: 1px solid #2271b1;
-    border-radius: 10px;
-    padding: 25px;
-    margin-bottom: 30px;
-}
-
-.vss-production-confirmation-fe h3 {
-    color: #2271b1;
-    margin-bottom: 15px;
-}
-
-.vss-production-confirmation-fe p {
-    color: #374151;
-    margin-bottom: 20px;
-}
-
-.vss-production-confirmation-fe label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 10px;
-    color: #374151;
-}
-
-.vss-production-confirmation-fe input[type="date"] {
-    width: 100%;
-    max-width: 300px;
-    padding: 10px 15px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 16px;
-    margin-bottom: 20px;
-}
-
-.vss-production-confirmation-fe button {
-    padding: 12px 30px;
-    background: #2271b1;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.vss-production-confirmation-fe button:hover {
-    background: #135e96;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(34, 113, 177, 0.3);
-}
-
-.vss-confirmation-info-fe {
-    background: #d1fae5;
-    border: 1px solid #10b981;
-    color: #065f46;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.vss-ship-date-countdown-fe {
-    display: inline-block;
-    padding: 8px 16px;
-    border-radius: 25px;
-    font-weight: 700;
-    font-size: 14px;
-    margin-top: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.vss-ship-date-countdown-fe.is-late {
-    background: #fee2e2;
-    color: #b91c1c;
-    border: 1px solid #ef4444;
-}
-
-.vss-ship-date-countdown-fe.is-today {
-    background: #d1fae5;
-    color: #065f46;
-    border: 1px solid #10b981;
-}
-
-.vss-ship-date-countdown-fe.is-upcoming {
-    background: #dbeafe;
-    color: #1e40af;
-    border: 1px solid #3b82f6;
-}
-
-/* ==========================================================================
-   File Upload & Management
-   ========================================================================== */
-
-.vss-file-drop-zone {
-    border: 2px dashed #e5e7eb;
-    border-radius: 10px;
-    padding: 40px;
-    text-align: center;
-    background: #f9fafb;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.vss-file-drop-zone:hover,
-.vss-file-drop-zone.drag-over {
-    border-color: #2271b1;
-    background: #f0f7ff;
-}
-
-.vss-file-drop-zone p {
-    margin: 0;
-    color: #6b7280;
-    font-size: 16px;
-}
-
-.vss-file-preview {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
-    margin-top: 20px;
-}
-
-.vss-file-preview .preview-item {
-    position: relative;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-    background: white;
-    text-align: center;
-}
-
-.vss-file-preview .preview-item img {
-    max-width: 100%;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 4px;
-}
-
-.vss-file-preview .preview-item .file-icon {
-    font-size: 48px;
-    color: #6b7280;
-    margin: 20px 0;
-}
-
-.vss-file-preview .preview-item .filename {
-    font-size: 12px;
-    color: #374151;
-    word-break: break-all;
-}
-
-.vss-file-preview .preview-item .remove-file {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 24px;
-    height: 24px;
-    background: #ef4444;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 18px;
-    line-height: 1;
-}
-
-.vss-file-preview .preview-item .remove-file:hover {
-    background: #dc2626;
-}
-
-/* ==========================================================================
-   Notes Section
-   ========================================================================== */
-
-.vss-private-notes-fe {
-    margin-top: 30px;
-}
-
-.vss-notes-list-fe {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 20px;
-    background: #f9fafb;
-    margin-bottom: 20px;
-}
-
-.vss-note-fe {
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 15px;
-    margin-bottom: 15px;
-}
-
-.vss-note-fe:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-}
-
-.vss-note-author-fe {
-    font-weight: 600;
-    color: #374151;
-}
-
-.vss-note-author-fe.is-admin {
-    color: #2271b1;
-}
-
-.vss-note-date-fe {
-    color: #6b7280;
-    font-size: 13px;
-    margin-left: 10px;
-}
-
-.vss-note-content {
-    margin-top: 8px;
-    color: #4b5563;
-}
-
-.vss-private-notes-fe textarea {
-    width: 100%;
-    padding: 15px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    min-height: 100px;
-    font-size: 15px;
-    resize: vertical;
-}
-
-.vss-private-notes-fe textarea:focus {
-    outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
-}
-
-/* ==========================================================================
-   Buttons & Actions
-   ========================================================================== */
-
-.vss-form-actions {
-    margin-top: 30px;
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-}
-
-.vss-form-actions button,
-.button,
-.button-primary,
-.button-secondary {
-    display: inline-block;
-    padding: 12px 30px;
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    text-decoration: none;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.button-primary,
-.vss-form-actions button[type="submit"] {
-    background: #2271b1;
-    color: white;
-}
-
-.button-primary:hover,
-.vss-form-actions button[type="submit"]:hover {
-    background: #135e96;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(34, 113, 177, 0.3);
-}
-
-.button-secondary {
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #e5e7eb;
-}
-
-.button-secondary:hover {
-    background: #e5e7eb;
-    color: #1f2937;
-}
-
-.button-small {
-    padding: 6px 16px;
-    font-size: 14px;
-}
-
-.button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Manual Fetch Button */
-.vss-manual-fetch-zakeke-zip {
-    background: #10b981 !important;
-    color: white !important;
-}
-
-.vss-manual-fetch-zakeke-zip:hover {
-    background: #059669 !important;
-}
-
-/* ==========================================================================
-   Notifications & Messages
-   ========================================================================== */
-
-.vss-success-notice,
-.vss-error-notice,
-.vss-warning-notice,
-.vss-info-notice {
-    padding: 16px 20px;
-    margin: 20px 0;
-    border-radius: 8px;
-    border-left: 4px solid;
-    position: relative;
-}
-
-.vss-success-notice {
-    background: #d1fae5;
-    border-color: #10b981;
-    color: #065f46;
-}
-
-.vss-error-notice {
-    background: #fee2e2;
-    border-color: #ef4444;
-    color: #b91c1c;
-}
-
-.vss-warning-notice {
-    background: #fef3c7;
-    border-color: #f59e0b;
-    color: #92400e;
-}
-
-.vss-info-notice {
-    background: #dbeafe;
-    border-color: #3b82f6;
-    color: #1e40af;
-}
-
-/* Floating Notifications */
-.vss-notification {
-    position: fixed;
-    top: 20px;
-    right: -350px;
-    width: 320px;
-    padding: 16px 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    z-index: 9999;
-    transition: right 0.3s ease;
-}
-
-.vss-notification.vss-notification-success {
-    border-left: 4px solid #10b981;
-}
-
-.vss-notification.vss-notification-error {
-    border-left: 4px solid #ef4444;
-}
-
-.vss-notification.vss-notification-info {
-    border-left: 4px solid #3b82f6;
-}
-
-.vss-notification .close {
-    position: absolute;
-    top: 5px;
-    right: 10px;
-    cursor: pointer;
-    font-size: 20px;
-    color: #6b7280;
-}
-
-/* ==========================================================================
-   Approval Sections
-   ========================================================================== */
-
-.vss-approval-form {
-    background: #f9fafb;
-    padding: 25px;
-    border-radius: 10px;
-    margin-top: 20px;
-}
-
-.vss-approval-form h5 {
-    margin-bottom: 20px;
-    color: #1f2937;
-}
-
-.vss-submitted-approval-files {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.vss-approval-file-item {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 15px;
-    background: white;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.vss-approval-file-item:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.vss-approval-file-item img {
-    display: block;
-    max-width: 100%;
-    max-height: 100px;
-    margin: 0 auto 10px;
-    border-radius: 4px;
-}
-
-.vss-approval-file-item .dashicons {
-    font-size: 60px;
-    width: 60px;
-    height: 60px;
-    color: #6b7280;
-    margin: 0 auto 10px;
-}
-
-.vss-approval-file-name {
-    font-size: 12px;
-    color: #374151;
-    word-break: break-all;
-}
-
-.vss-customer-feedback {
-    background: #fef3c7;
-    border: 1px solid #f59e0b;
-    color: #92400e;
-    padding: 15px;
-    border-radius: 8px;
-    margin: 15px 0;
-}
-
-/* ==========================================================================
-   Loading States
-   ========================================================================== */
-
-.vss-loading {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid #e5e7eb;
-    border-top-color: #2271b1;
-    border-radius: 50%;
-    animation: vss-spin 1s linear infinite;
-}
-
-@keyframes vss-spin {
-    to { transform: rotate(360deg); }
-}
-
-.vss-loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
-
-/* ==========================================================================
-   Pagination
-   ========================================================================== */
-
-.vss-pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    margin: 40px 0;
-}
-
-.vss-pagination a,
-.vss-pagination span {
-    display: inline-block;
-    padding: 8px 12px;
-    min-width: 40px;
-    text-align: center;
-    text-decoration: none;
-    color: #4b5563;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.vss-pagination a:hover {
-    background: #2271b1;
-    color: white;
-    border-color: #2271b1;
-}
-
-.vss-pagination .current {
-    background: #2271b1;
-    color: white;
-    border-color: #2271b1;
-}
-
-.vss-pagination .dots {
-    border: none;
-    background: transparent;
-}
-
-/* ==========================================================================
-   Responsive Design
-   ========================================================================== */
-
-@media (max-width: 1024px) {
-    .vss-stat-boxes {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
+   Responsive Improvements
+   ========================================================================== */
 
 @media (max-width: 768px) {
-    .vss-frontend-portal {
-        padding: 15px;
-    }
-
-    .vss-vendor-navigation {
-        flex-wrap: wrap;
-        padding: 0;
-    }
-
-    .vss-vendor-navigation a {
-        flex: 1 0 50%;
-        padding: 15px 10px;
-        font-size: 14px;
-        text-align: center;
-    }
-
-    .vss-vendor-navigation a.logout {
-        flex: 1 0 100%;
-        margin: 10px;
-    }
-
-    .vss-stat-boxes {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-
-    .vss-stat-box-fe .stat-number-fe {
-        font-size: 2.5em;
-    }
-
-    .vss-action-buttons {
-        flex-direction: column;
-    }
-
-    .vss-action-buttons .button {
-        width: 100%;
-    }
-
-    .vss-orders-table {
-        font-size: 14px;
-    }
-
-    .vss-orders-table th,
-    .vss-orders-table td {
-        padding: 12px 10px;
-    }
-
-    /* Hide less important columns on mobile */
-    .vss-orders-table th:nth-child(5),
-    .vss-orders-table td:nth-child(5),
-    .vss-orders-table th:nth-child(6),
-    .vss-orders-table td:nth-child(6) {
-        display: none;
-    }
-
-    .vss-search-form {
-        flex-direction: column;
-        max-width: 100%;
-    }
-
-    .vss-form-actions {
-        flex-direction: column;
-    }
-
-    .vss-form-actions button,
-    .button {
-        width: 100%;
-    }
-
-    .vss-pagination {
-        flex-wrap: wrap;
-    }
-
-    .vss-pagination a,
-    .vss-pagination span {
-        padding: 6px 10px;
-        min-width: 35px;
-        font-size: 14px;
-    }
-}
-
-@media (max-width: 480px) {
-    .vss-vendor-navigation a {
-        flex: 1 0 100%;
-    }
-
-    .vss-orders-table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-
-    .vss-order-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
-
-    .vss-order-status-bar {
-        flex-direction: column;
-        gap: 15px;
-    }
-}
-
-/* ==========================================================================
-   Print Styles
-   ========================================================================== */
-
-@media print {
-    .vss-vendor-navigation,
-    .vss-action-buttons,
-    .vss-form-actions,
-    .vss-pagination,
-    .vss-search-form,
-    .vss-status-filters,
-    .button,
-    .vss-order-actions {
-        display: none !important;
-    }
-
-    .vss-frontend-portal {
-        max-width: 100%;
-        padding: 0;
-    }
-
-    .vss-orders-table {
-        border: 1px solid #000;
-    }
-
-    .vss-orders-table th,
-    .vss-orders-table td {
-        border: 1px solid #000;
-    }
-}
-
-/* ==========================================================================
-   Accessibility
-   ========================================================================== */
-
-.vss-frontend-portal *:focus {
-    outline: 2px solid #2271b1;
-    outline-offset: 2px;
-}
-
-.vss-frontend-portal .screen-reader-text {
-    position: absolute;
-    left: -9999px;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-}
-
-.vss-frontend-portal [aria-hidden="true"] {
-    display: none;
-}
-
-/* ==========================================================================
-   Dark Mode Support (Optional)
-   ========================================================================== */
-
-@media (prefers-color-scheme: dark) {
-    /* Add dark mode styles here if needed */
-
-}
-
-/* Additional CSS for Single Page Order Details Layout
-   Add this to your vss-frontend-styles.css file */
-
-/* Enhanced Section Styling */
-.vss-single-page-layout .vss-order-section {
-    position: relative;
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from { 
-        opacity: 0; 
-        transform: translateY(10px); 
+    .vss-content-wrapper {
+        padding: 24px 16px;
     }
-    to { 
-        opacity: 1; 
-        transform: translateY(0); 
+
+    .vss-vendor-navigation-inner {
+        flex-wrap: wrap;
+        padding: 0 16px;
+    }
+
+    .vss-vendor-navigation a {
+        padding: 16px 12px;
+        font-size: 14px;
+    }
+
+    .vss-vendor-navigation a.logout {
+        width: 100%;
+        text-align: center;
+        margin: 8px 0;
+    }
+
+    .vss-stat-boxes {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .vss-action-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .vss-two-column {
+        grid-template-columns: 1fr;
+    }
+
+    .vss-two-column .vss-column {
+        margin: 0 !important;
+    }
+
+    .vss-order-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .vss-order-status-bar {
+        flex-direction: column;
+        gap: 24px;
+        padding: 24px 16px;
+    }
+
+    .vss-order-status-bar::before {
+        display: none;
+    }
+
+    .overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Hide less important columns on mobile */
+    .vss-orders-table th:nth-child(4),
+    .vss-orders-table td:nth-child(4),
+    .vss-orders-table th:nth-child(5),
+    .vss-orders-table td:nth-child(5) {
+        display: none;
     }
 }
 
-/* Section Numbers */
-.vss-section-header::before {
-    content: attr(data-section-number);
-    position: absolute;
-    left: -40px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 30px;
-    height: 30px;
-    background: #2271b1;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 14px;
-}
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
 
-/* Collapsible Sections (optional) */
-.vss-section-header {
-    cursor: pointer;
-    user-select: none;
-    position: relative;
-    padding-right: 50px;
-}
-
-.vss-section-header::after {
-    content: '▼';
-    position: absolute;
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6b7280;
-    font-size: 12px;
-    transition: transform 0.3s ease;
-}
-
-.vss-section-header.collapsed::after {
-    transform: translateY(-50%) rotate(-90deg);
-}
-
-.vss-section-content {
-    max-height: 2000px;
-    overflow: hidden;
-    transition: max-height 0.3s ease-in-out;
-}
-
-.vss-section-content.collapsed {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-}
-
-/* Progress Indicator */
-.vss-order-progress {
+/* Loading overlay */
+.vss-loading-overlay {
     position: fixed;
-    top: 50%;
-    right: 20px;
-    transform: translateY(-50%);
-    z-index: 100;
-    background: white;
-    padding: 10px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.vss-order-progress ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.vss-order-progress li {
-    margin: 5px 0;
-    font-size: 12px;
-}
-
-.vss-order-progress a {
-    color: #6b7280;
-    text-decoration: none;
-    display: block;
-    padding: 3px 0;
-    transition: color 0.2s ease;
-}
-
-.vss-order-progress a:hover,
-.vss-order-progress a.active {
-    color: #2271b1;
-}
-
-/* Status Pills */
-.vss-section-status {
-    display: inline-block;
-    margin-left: 15px;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.75em;
-    font-weight: 500;
-}
-
-.vss-section-status.complete {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.vss-section-status.incomplete {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.vss-section-status.attention {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-/* Action Required Indicator */
-.vss-action-required {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: #ef4444;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.6; }
-    100% { opacity: 1; }
-}
-
-/* Enhanced Form Styling */
-.vss-order-section form {
-    background: #f9fafb;
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    margin-top: 15px;
-}
-
-.vss-order-section form h4,
-.vss-order-section form h5 {
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: #1f2937;
-}
-
-/* Better File Upload Areas */
-.vss-approval-form input[type="file"] {
-    width: 100%;
-    padding: 40px 20px;
-    border: 2px dashed #cbd5e1;
-    border-radius: 8px;
-    background: #f8fafc;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: center;
-}
-
-.vss-approval-form input[type="file"]:hover {
-    border-color: #2271b1;
-    background: #f0f7ff;
-}
-
-/* Loading States */
-.vss-section-loading {
-    position: relative;
-    pointer-events: none;
-}
-
-.vss-section-loading::after {
-    content: '';
-    position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.9);
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
+    z-index: 9999;
 }
 
-.vss-section-loading::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 30px;
-    height: 30px;
-    margin: -15px 0 0 -15px;
-    border: 3px solid #e5e7eb;
+.vss-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
     border-top-color: #2271b1;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    z-index: 1;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+/* Empty state */
+.vss-empty-state {
+    text-align: center;
+    padding: 64px 24px;
 }
 
-/* Mobile Optimizations */
-@media (max-width: 768px) {
-    .vss-section-header::before {
-        display: none;
-    }
-    
-    .vss-order-progress {
-        display: none;
-    }
-    
-    .vss-order-section {
-        margin-bottom: 15px;
-        border-radius: 8px;
-    }
-    
-    .vss-section-header {
-        padding: 15px 40px 15px 15px;
-    }
-    
-    .vss-section-content {
-        padding: 15px;
-    }
-    
-    /* Sticky Actions on Mobile */
-    .vss-quick-actions-section {
-        position: sticky;
-        bottom: 0;
-        z-index: 50;
-        margin-bottom: 0;
-        border-radius: 12px 12px 0 0;
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    }
+.vss-empty-state-icon {
+    width: 80px;
+    height: 80px;
+    background: #f3f4f6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    font-size: 36px;
+    color: #9ca3af;
 }
 
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-    .vss-order-section {
-        background: #1f2937;
-        border-color: #374151;
-    }
-    
-    .vss-section-header {
-        background: #111827;
-        border-bottom-color: #374151;
-    }
-    
-    .vss-section-header h3 {
-        color: #f9fafb;
-    }
-    
-    .vss-section-content {
-        color: #e5e7eb;
-    }
-    
-    .overview-section {
-        background: #111827;
-    }
-    
-    .overview-section h4 {
-        color: #f3f4f6;
-    }
-    
-    .overview-section p {
-        color: #d1d5db;
-    }
+.vss-empty-state h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 8px;
 }
 
-/* Accessibility Improvements */
-.vss-order-section:focus-within {
-    outline: 2px solid #2271b1;
-    outline-offset: 2px;
+.vss-empty-state p {
+    color: #6b7280;
+    margin-bottom: 24px;
 }
 
-.vss-skip-link {
-    position: absolute;
-    left: -9999px;
-    top: 0;
-    z-index: 999;
-    padding: 10px;
-    background: #2271b1;
-    color: white;
-    text-decoration: none;
-}
+/* ==========================================================================
+   Print Styles
+   ========================================================================== */
 
-.vss-skip-link:focus {
-    left: 10px;
-    top: 10px;
-}
-
-/* Print Enhancements */
 @media print {
-    .vss-order-section {
-        page-break-inside: avoid;
+    .vss-vendor-navigation,
+    .vss-action-buttons,
+    .vss-form-actions,
+    .vss-pagination,
+    .vss-search-form,
+    .vss-status-filters,
+    .button,
+    .vss-order-actions {
+        display: none !important;
+    }
+
+    .vss-frontend-portal {
+        background: white;
+    }
+
+    .vss-content-wrapper {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .vss-orders-table {
         border: 1px solid #000;
-        margin-bottom: 10px;
     }
-    
-    .vss-section-header {
-        background: none;
-        border-bottom: 2px solid #000;
-        padding: 10px;
-    }
-    
-    .vss-section-header h3 {
-        font-size: 16pt;
+
+    .vss-orders-table th,
+    .vss-orders-table td {
+        border: 1px solid #000;
     }
 }
