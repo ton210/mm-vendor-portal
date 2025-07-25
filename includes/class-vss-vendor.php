@@ -338,7 +338,7 @@ class VSS_Vendor {
         // Get filter parameters
         $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : 'all';
         $search = isset( $_GET['s'] ) ? sanitize_text_field( $_GET['s'] ) : '';
-        $per_page = 20;
+        $per_page = 100; // Show 100 orders per page
         $paged = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
 
         // Build query args
@@ -415,6 +415,21 @@ class VSS_Vendor {
             <button type="submit"><?php esc_html_e( 'Search', 'vss' ); ?></button>
         </form>
 
+        <?php if ( $total_orders > 0 ) : ?>
+            <p class="vss-orders-info">
+                <?php
+                $start = ( ( $paged - 1 ) * $per_page ) + 1;
+                $end = min( $paged * $per_page, $total_orders );
+                printf(
+                    esc_html__( 'Showing %1$d-%2$d of %3$d orders', 'vss' ),
+                    $start,
+                    $end,
+                    $total_orders
+                );
+                ?>
+            </p>
+        <?php endif; ?>
+
         <table class="vss-orders-table">
             <thead>
                 <tr>
@@ -443,19 +458,109 @@ class VSS_Vendor {
         <?php if ( $total_pages > 1 ) : ?>
             <div class="vss-pagination">
                 <?php
+                // Build base URL preserving other query parameters
+                $base_url = add_query_arg( [
+                    'vss_action' => 'orders',
+                    'status' => $status_filter !== 'all' ? $status_filter : false,
+                    's' => ! empty( $search ) ? $search : false,
+                ], get_permalink() );
+
                 echo paginate_links( [
-                    'base' => add_query_arg( 'paged', '%#%' ),
-                    'format' => '',
-                    'prev_text' => '&laquo;',
-                    'next_text' => '&raquo;',
+                    'base' => $base_url . '%_%',
+                    'format' => strpos( $base_url, '?' ) !== false ? '&paged=%#%' : '?paged=%#%',
+                    'prev_text' => '&laquo; ' . __( 'Previous', 'vss' ),
+                    'next_text' => __( 'Next', 'vss' ) . ' &raquo;',
                     'total' => $total_pages,
                     'current' => $paged,
+                    'type' => 'list',
+                    'end_size' => 2,
+                    'mid_size' => 2,
                 ] );
                 ?>
             </div>
         <?php endif; ?>
+
+        <style>
+        /* Enhanced pagination styles */
+        .vss-orders-info {
+            margin: 15px 0;
+            color: #666;
+            font-style: italic;
+        }
+
+        .vss-pagination {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .vss-pagination .page-numbers {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: inline-flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .vss-pagination .page-numbers li {
+            display: inline-block;
+        }
+
+        .vss-pagination .page-numbers a,
+        .vss-pagination .page-numbers span.current,
+        .vss-pagination .page-numbers span.dots {
+            display: inline-block;
+            padding: 8px 12px;
+            text-decoration: none;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #333;
+            background: #fff;
+            transition: all 0.2s ease;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .vss-pagination .page-numbers a:hover {
+            background: #2271b1;
+            color: #fff;
+            border-color: #2271b1;
+        }
+
+        .vss-pagination .page-numbers span.current {
+            background: #2271b1;
+            color: #fff;
+            border-color: #2271b1;
+            font-weight: bold;
+        }
+
+        .vss-pagination .page-numbers span.dots {
+            border: none;
+            background: none;
+        }
+
+        .vss-pagination .page-numbers .prev,
+        .vss-pagination .page-numbers .next {
+            min-width: auto;
+            padding: 8px 16px;
+        }
+
+        @media (max-width: 768px) {
+            .vss-pagination .page-numbers {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .vss-pagination .page-numbers a,
+            .vss-pagination .page-numbers span {
+                padding: 6px 10px;
+                font-size: 14px;
+            }
+        }
+        </style>
         <?php
     }
+
 
     /**
      * Enqueue frontend assets
@@ -592,7 +697,7 @@ class VSS_Vendor {
         // Get filter parameters
         $status_filter = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : 'all';
         $search = isset( $_GET['s'] ) ? sanitize_text_field( $_GET['s'] ) : '';
-        $per_page = 100;
+        $per_page = 100; // Show 100 orders per page
         $paged = isset( $_GET['paged'] ) ? max( 1, intval( $_GET['paged'] ) ) : 1;
 
         // Handle bulk actions
@@ -713,16 +818,34 @@ class VSS_Vendor {
                     <?php if ( $total_pages > 1 ) : ?>
                     <div class="tablenav-pages">
                         <span class="displaying-num">
-                            <?php printf( _n( '%s order', '%s orders', $total_orders, 'vss' ), number_format_i18n( $total_orders ) ); ?>
+                            <?php
+                            $start = ( ( $paged - 1 ) * $per_page ) + 1;
+                            $end = min( $paged * $per_page, $total_orders );
+                            printf(
+                                esc_html__( 'Showing %1$d-%2$d of %3$d orders', 'vss' ),
+                                $start,
+                                $end,
+                                $total_orders
+                            );
+                            ?>
                         </span>
                         <?php
+                        // Build base URL preserving other parameters
+                        $base_url = add_query_arg( [
+                            'page' => 'vss-vendor-orders',
+                            'status' => $status_filter !== 'all' ? $status_filter : false,
+                            's' => ! empty( $search ) ? $search : false,
+                        ], admin_url( 'admin.php' ) );
+
                         echo paginate_links( [
-                            'base' => add_query_arg( 'paged', '%#%' ),
-                            'format' => '',
+                            'base' => $base_url . '%_%',
+                            'format' => '&paged=%#%',
                             'prev_text' => '&laquo;',
                             'next_text' => '&raquo;',
                             'total' => $total_pages,
                             'current' => $paged,
+                            'end_size' => 2,
+                            'mid_size' => 2,
                         ] );
                         ?>
                     </div>
@@ -752,7 +875,8 @@ class VSS_Vendor {
                             <?php endforeach; ?>
                         <?php else : ?>
                             <tr>
-                                <td colspan="9"> <p><?php esc_html_e( 'No orders found.', 'vss' ); ?></p>
+                                <td colspan="9">
+                                    <p><?php esc_html_e( 'No orders found.', 'vss' ); ?></p>
                                 </td>
                             </tr>
                         <?php endif; ?>
@@ -762,14 +886,26 @@ class VSS_Vendor {
                 <?php if ( $total_pages > 1 ) : ?>
                 <div class="tablenav bottom">
                     <div class="tablenav-pages">
+                        <span class="displaying-num">
+                            <?php
+                            printf(
+                                esc_html__( 'Showing %1$d-%2$d of %3$d orders', 'vss' ),
+                                $start,
+                                $end,
+                                $total_orders
+                            );
+                            ?>
+                        </span>
                         <?php
                         echo paginate_links( [
-                            'base' => add_query_arg( 'paged', '%#%' ),
-                            'format' => '',
+                            'base' => $base_url . '%_%',
+                            'format' => '&paged=%#%',
                             'prev_text' => '&laquo;',
                             'next_text' => '&raquo;',
                             'total' => $total_pages,
                             'current' => $paged,
+                            'end_size' => 2,
+                            'mid_size' => 2,
                         ] );
                         ?>
                     </div>
@@ -838,6 +974,13 @@ class VSS_Vendor {
             /* Make sure processing orders stand out */
             .vss-vendor-orders-table tbody tr.status-processing td {
                 font-weight: 500;
+            }
+
+            /* Pagination info styling */
+            .tablenav .displaying-num {
+                font-style: italic;
+                color: #666;
+                margin-right: 15px;
             }
             </style>
 
