@@ -2343,7 +2343,7 @@ class VSS_Vendor {
      */
     public static function handle_file_download() {
         // Check if this is a VSS file download request
-        if ( isset( $_GET['vss_download'] ) && isset( $_GET['file_id'] ) && isset( $_GET['order_id'] ) ) {
+        if ( isset( $_GET['vss_download'] ) && isset( $_GET['file_id'] ) && isset( $_POST['order_id'] ) ) {
             $file_id = intval( $_GET['file_id'] );
             $order_id = intval( $_GET['order_id'] );
             $nonce = isset( $_GET['_wpnonce'] ) ? $_GET['_wpnonce'] : '';
