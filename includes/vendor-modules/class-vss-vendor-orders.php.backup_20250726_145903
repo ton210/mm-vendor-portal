@@ -861,37 +861,6 @@ trait VSS_Vendor_Orders {
                     </div>
                 </div>
 
-                
-                <!-- Shipping & Tracking Section -->
-                <div class="vss-order-section">
-                    <div class="vss-section-header">
-                        <h3><?php esc_html_e( 'Shipping & Tracking', 'vss' ); ?></h3>
-                    </div>
-                    <div class="vss-section-content">
-                        <?php self::render_shipping_section( $order ); ?>
-                    </div>
-                </div>
-
-                <!-- Mockup Approval Section -->
-                <div class="vss-order-section">
-                    <div class="vss-section-header">
-                        <h3><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></h3>
-                    </div>
-                    <div class="vss-section-content">
-                        <?php self::render_approval_section( $order, 'mockup' ); ?>
-                    </div>
-                </div>
-
-                <!-- Production Files Approval Section -->
-                <div class="vss-order-section">
-                    <div class="vss-section-header">
-                        <h3><?php esc_html_e( 'Production Files Approval', 'vss' ); ?></h3>
-                    </div>
-                    <div class="vss-section-content">
-                        <?php self::render_approval_section( $order, 'production_file' ); ?>
-                    </div>
-                </div>
-
                 <div class="vss-order-section" id="section-notes">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Order Notes', 'vss' ); ?></h3>
