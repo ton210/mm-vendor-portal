@@ -1,0 +1,284 @@
+# Vendor Order Manager - Simplified Chinese Translation
+# Copyright (C) 2024
+# This file is distributed under the same license as the Vendor Order Manager package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Vendor Order Manager 7.1.0\n"
+"POT-Creation-Date: 2024-01-01 00:00:00+00:00\n"
+"PO-Revision-Date: 2024-01-01 00:00:00+00:00\n"
+"Last-Translator: \n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+# Navigation
+msgid "Dashboard"
+msgstr "控制面板"
+
+msgid "My Orders"
+msgstr "我的订单"
+
+msgid "Reports"
+msgstr "报告"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Logout"
+msgstr "退出"
+
+msgid "Go to Portal"
+msgstr "前往门户"
+
+msgid "Media"
+msgstr "媒体"
+
+# Dashboard
+msgid "Welcome back, %s!"
+msgstr "欢迎回来，%s！"
+
+msgid "Here's what's happening with your orders today."
+msgstr "以下是您今天的订单情况。"
+
+msgid "Orders in Processing"
+msgstr "处理中的订单"
+
+msgid "Orders Late"
+msgstr "延迟订单"
+
+msgid "Shipped This Month"
+msgstr "本月已发货"
+
+msgid "Earnings This Month"
+msgstr "本月收入"
+
+# Quick Actions
+msgid "Quick Actions"
+msgstr "快速操作"
+
+msgid "View All Orders"
+msgstr "查看所有订单"
+
+msgid "Upload Files"
+msgstr "上传文件"
+
+msgid "View Reports"
+msgstr "查看报告"
+
+msgid "Contact Support"
+msgstr "联系支持"
+
+# Order List
+msgid "Recent Orders"
+msgstr "最近订单"
+
+msgid "View all orders →"
+msgstr "查看所有订单 →"
+
+msgid "Order"
+msgstr "订单"
+
+msgid "Date"
+msgstr "日期"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Customer"
+msgstr "客户"
+
+msgid "Items"
+msgstr "项目"
+
+msgid "Ship Date"
+msgstr "发货日期"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "View"
+msgstr "查看"
+
+msgid "Add Tracking"
+msgstr "添加跟踪"
+
+msgid "No orders found."
+msgstr "未找到订单。"
+
+# Order Status
+msgid "Processing"
+msgstr "处理中"
+
+msgid "Shipped"
+msgstr "已发货"
+
+msgid "Completed"
+msgstr "已完成"
+
+msgid "Pending"
+msgstr "待处理"
+
+msgid "All"
+msgstr "全部"
+
+msgid "LATE"
+msgstr "延迟"
+
+# Order Details
+msgid "Order #%s"
+msgstr "订单 #%s"
+
+msgid "Back to Orders"
+msgstr "返回订单列表"
+
+msgid "Order Overview"
+msgstr "订单概览"
+
+msgid "Order Information"
+msgstr "订单信息"
+
+msgid "Order Number:"
+msgstr "订单号："
+
+msgid "Date Created:"
+msgstr "创建日期："
+
+msgid "Status:"
+msgstr "状态："
+
+msgid "Estimated Ship Date:"
+msgstr "预计发货日期："
+
+msgid "Customer Information"
+msgstr "客户信息"
+
+msgid "Name:"
+msgstr "姓名："
+
+msgid "Email:"
+msgstr "邮箱："
+
+msgid "Phone:"
+msgstr "电话："
+
+msgid "Shipping Address"
+msgstr "送货地址"
+
+# Production
+msgid "Confirm Production"
+msgstr "确认生产"
+
+msgid "Please confirm that you can fulfill this order and provide an estimated ship date."
+msgstr "请确认您可以完成此订单并提供预计发货日期。"
+
+msgid "Production Confirmed"
+msgstr "生产已确认"
+
+# Shipping & Tracking
+msgid "Shipping & Tracking"
+msgstr "运输与跟踪"
+
+msgid "Shipping Information"
+msgstr "运输信息"
+
+msgid "Tracking Number:"
+msgstr "跟踪号："
+
+msgid "Carrier:"
+msgstr "承运人："
+
+msgid "Shipped Date:"
+msgstr "发货日期："
+
+msgid "Edit Tracking Info"
+msgstr "编辑跟踪信息"
+
+msgid "Shipping Carrier:"
+msgstr "运输公司："
+
+msgid "— Select Carrier —"
+msgstr "— 选择承运人 —"
+
+msgid "Enter tracking number"
+msgstr "输入跟踪号"
+
+msgid "Save Tracking & Mark as Shipped"
+msgstr "保存跟踪并标记为已发货"
+
+msgid "Update Tracking Info"
+msgstr "更新跟踪信息"
+
+msgid "Track Package"
+msgstr "跟踪包裹"
+
+# Search
+msgid "Search"
+msgstr "搜索"
+
+msgid "Search orders, customers, emails, SKUs..."
+msgstr "搜索订单、客户、邮箱、SKU..."
+
+msgid "Advanced Filters"
+msgstr "高级筛选"
+
+msgid "Apply Filters"
+msgstr "应用筛选"
+
+msgid "Clear Filters"
+msgstr "清除筛选"
+
+# Notifications
+msgid "Success!"
+msgstr "成功！"
+
+msgid "Error!"
+msgstr "错误！"
+
+msgid "Loading..."
+msgstr "加载中..."
+
+msgid "Please wait..."
+msgstr "请稍候..."
+
+msgid "Are you sure?"
+msgstr "您确定吗？"
+
+# Common
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Submit"
+msgstr "提交"
+
+msgid "Download"
+msgstr "下载"
+
+msgid "Upload"
+msgstr "上传"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Previous"
+msgstr "上一个"
+
+msgid "Next"
+msgstr "下一个"

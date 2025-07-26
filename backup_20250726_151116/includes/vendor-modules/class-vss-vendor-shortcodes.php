@@ -231,12 +231,7 @@ trait VSS_Vendor_Shortcodes {
                         <span class="dashicons dashicons-admin-generic"></span>
                         <?php esc_html_e( 'Settings', 'vss' ); ?>
                     </a>
-                    <?php
-                // Add hook for language switcher
-                do_action( 'vss_vendor_navigation_end' );
-                ?>
-
-                <a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" class="logout">
+                    <a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" class="logout">
                         <span class="dashicons dashicons-exit"></span>
                         <?php esc_html_e( 'Logout', 'vss' ); ?>
                     </a>

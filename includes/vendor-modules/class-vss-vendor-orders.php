@@ -599,7 +599,7 @@ trait VSS_Vendor_Orders {
                 }
 
                 // Disable button and show loading
-                $button.prop('disabled', true).text('<?php esc_js_e( 'Saving...', 'vss' ); ?>');
+                $button.prop('disabled', true).text('<?php echo esc_js( __( 'Saving...', 'vss' ) ); ?>');
 
                 // Prepare data
                 var formData = {
@@ -628,10 +628,10 @@ trait VSS_Vendor_Orders {
                             var $row = $('tr').find('[data-order-id="' + formData.order_id + '"]').closest('tr');
                             if ($row.length) {
                                 // Update status badge
-                                $row.find('.status-badge').removeClass('processing').addClass('shipped').text('<?php esc_js_e( 'Shipped', 'vss' ); ?>');
+                                $row.find('.status-badge').removeClass('processing').addClass('shipped').text('<?php echo esc_js( __( 'Shipped', 'vss' ) ); ?>');
 
                                 // Replace quick tracking button with tracking info
-                                var trackingHtml = '<small><?php esc_js_e( 'Tracking:', 'vss' ); ?> ' + formData.tracking_number + '</small>';
+                                var trackingHtml = '<small><?php echo esc_js( __( 'Tracking:', 'vss' ) ); ?> ' + formData.tracking_number + '</small>';
                                 $row.find('.vss-quick-tracking-btn').replaceWith(trackingHtml);
                             }
 
@@ -643,14 +643,14 @@ trait VSS_Vendor_Orders {
                             }, 5000);
 
                         } else {
-                            alert(response.data.message || '<?php esc_js_e( 'An error occurred. Please try again.', 'vss' ); ?>');
+                            alert(response.data.message || '<?php echo esc_js( __( 'An error occurred. Please try again.', 'vss' ) ); ?>');
                         }
                     },
                     error: function() {
-                        alert('<?php esc_js_e( 'Connection error. Please try again.', 'vss' ); ?>');
+                        alert('<?php echo esc_js( __( 'Connection error. Please try again.', 'vss' ) ); ?>');
                     },
                     complete: function() {
-                        $button.prop('disabled', false).text('<?php esc_js_e( 'Save & Mark as Shipped', 'vss' ); ?>');
+                        $button.prop('disabled', false).text('<?php echo esc_js( __( 'Save & Mark as Shipped', 'vss' ) ); ?>');
                     }
                 });
             });
@@ -663,12 +663,12 @@ trait VSS_Vendor_Orders {
                 });
 
                 if (selectedOrders.length === 0) {
-                    alert('<?php esc_js_e( 'Please select at least one order.', 'vss' ); ?>');
+                    alert('<?php echo esc_js( __( 'Please select at least one order.', 'vss' ) ); ?>');
                     return;
                 }
 
                 var $button = $(this);
-                $button.prop('disabled', true).text('<?php esc_js_e( 'Preparing downloads...', 'vss' ); ?>');
+                $button.prop('disabled', true).text('<?php echo esc_js( __( 'Preparing downloads...', 'vss' ) ); ?>');
 
                 $.ajax({
                     url: vss_frontend_ajax.ajax_url,
@@ -688,15 +688,15 @@ trait VSS_Vendor_Orders {
                                 link.click();
                             });
 
-                            $button.prop('disabled', false).text('<?php esc_js_e( 'Download Selected Zakeke Files', 'vss' ); ?>');
+                            $button.prop('disabled', false).text('<?php echo esc_js( __( 'Download Selected Zakeke Files', 'vss' ) ); ?>');
                         } else {
-                            alert(response.data.message || '<?php esc_js_e( 'Error preparing downloads.', 'vss' ); ?>');
-                            $button.prop('disabled', false).text('<?php esc_js_e( 'Download Selected Zakeke Files', 'vss' ); ?>');
+                            alert(response.data.message || '<?php echo esc_js( __( 'Error preparing downloads.', 'vss' ) ); ?>');
+                            $button.prop('disabled', false).text('<?php echo esc_js( __( 'Download Selected Zakeke Files', 'vss' ) ); ?>');
                         }
                     },
                     error: function() {
-                        alert('<?php esc_js_e( 'Connection error. Please try again.', 'vss' ); ?>');
-                        $button.prop('disabled', false).text('<?php esc_js_e( 'Download Selected Zakeke Files', 'vss' ); ?>');
+                        alert('<?php echo esc_js( __( 'Connection error. Please try again.', 'vss' ) ); ?>');
+                        $button.prop('disabled', false).text('<?php echo esc_js( __( 'Download Selected Zakeke Files', 'vss' ) ); ?>');
                     }
                 });
             });
@@ -861,8 +861,7 @@ trait VSS_Vendor_Orders {
                     </div>
                 </div>
 
-                
-                <!-- Shipping & Tracking Section -->
+
                 <div class="vss-order-section">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Shipping & Tracking', 'vss' ); ?></h3>
@@ -872,7 +871,6 @@ trait VSS_Vendor_Orders {
                     </div>
                 </div>
 
-                <!-- Mockup Approval Section -->
                 <div class="vss-order-section">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></h3>
@@ -882,7 +880,6 @@ trait VSS_Vendor_Orders {
                     </div>
                 </div>
 
-                <!-- Production Files Approval Section -->
                 <div class="vss-order-section">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Production Files Approval', 'vss' ); ?></h3>

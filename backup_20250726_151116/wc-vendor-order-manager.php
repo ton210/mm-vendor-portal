@@ -29,6 +29,8 @@ define( 'VSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'VSS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 define( 'VSS_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
+
+
 /**
  * Main plugin class
  */
@@ -68,7 +70,6 @@ class Vendor_Order_Manager {
 
         // Early script loading for vendors
         add_action( 'init', [ $this, 'early_init' ], 5 );
-        add_action( 'init', [ $this, 'load_textdomain' ] );
     }
 
     /**
@@ -83,28 +84,6 @@ class Vendor_Order_Manager {
     }
 
     /**
-     * Load plugin text domain for translations
-     */
-    public function load_textdomain() {
-        // Load default English translations
-        load_plugin_textdomain( 'vss', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
-
-        // Check if vendor needs specific language
-        if ( is_user_logged_in() ) {
-            $user_id = get_current_user_id();
-            $user = get_user_by( 'id', $user_id );
-            if ( $user && in_array( 'vendor-mm', (array) $user->roles, true ) ) {
-                $preferred_lang = get_user_meta( $user_id, 'vss_preferred_language', true );
-                if ( $preferred_lang === 'zh_CN' ) {
-                    // Unload default and load Chinese
-                    unload_textdomain( 'vss' );
-                    load_textdomain( 'vss', VSS_PLUGIN_DIR . 'languages/vss-zh_CN.mo' );
-                }
-            }
-        }
-    }
-
-    /**
      * Initialize plugin
      */
     public function init() {
@@ -114,7 +93,8 @@ class Vendor_Order_Manager {
             return;
         }
 
-        // Textdomain is loaded via the load_textdomain() method hooked to 'init'.
+        // Load text domain
+        load_plugin_textdomain( 'vss', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 
         // Include required files
         $this->includes();
@@ -144,11 +124,6 @@ class Vendor_Order_Manager {
             require_once VSS_PLUGIN_DIR . 'includes/class-vss-customer.php';
         }
 
-        // Multilingual support
-        if ( file_exists( VSS_PLUGIN_DIR . 'includes/class-vss-vendor-multilingual.php' ) ) {
-            require_once VSS_PLUGIN_DIR . 'includes/class-vss-vendor-multilingual.php';
-        }
-
         if ( file_exists( VSS_PLUGIN_DIR . 'includes/class-vss-notifications.php' ) ) {
             require_once VSS_PLUGIN_DIR . 'includes/class-vss-notifications.php';
         }
@@ -175,11 +150,6 @@ class Vendor_Order_Manager {
         // Optional components
         if ( class_exists( 'VSS_Customer' ) ) {
             VSS_Customer::init();
-        }
-
-        // Initialize multilingual support
-        if ( class_exists( 'VSS_Vendor_Multilingual' ) ) {
-            VSS_Vendor_Multilingual::init();
         }
 
         if ( class_exists( 'VSS_Notifications' ) ) {
@@ -217,6 +187,8 @@ class Vendor_Order_Manager {
 
         // AJAX nonce for logged out users
         add_action( 'wp_head', [ $this, 'add_ajax_nonce' ] );
+
+        
 
         // Ensure tab functionality
         $this->ensure_tab_functionality();
@@ -671,6 +643,8 @@ class Vendor_Order_Manager {
                 $classes[] = 'vendor-mm-admin';
             }
         }
+
+
 
         // Add page-specific classes
         if ( is_page() ) {
