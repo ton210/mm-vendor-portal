@@ -19,6 +19,54 @@ if ( ! defined( 'ABSPATH' ) ) {
 trait VSS_Vendor_Ajax {
 
 
+        
+        /**
+         * AJAX handler for batch Zakeke downloads
+         */
+        public static function ajax_batch_download_zakeke() {
+            check_ajax_referer( 'vss_frontend_nonce', 'nonce' );
+
+            if ( ! self::is_current_user_vendor() ) {
+                wp_send_json_error( [ 'message' => __( 'Permission denied.', 'vss' ) ] );
+            }
+
+            $order_ids = isset( $_POST['order_ids'] ) ? array_map( 'intval', $_POST['order_ids'] ) : [];
+
+            if ( empty( $order_ids ) ) {
+                wp_send_json_error( [ 'message' => __( 'No orders selected.', 'vss' ) ] );
+            }
+
+            $files = [];
+            $vendor_id = get_current_user_id();
+
+            foreach ( $order_ids as $order_id ) {
+                $order = wc_get_order( $order_id );
+
+                // Verify vendor has access
+                if ( ! $order || get_post_meta( $order_id, '_vss_vendor_user_id', true ) != $vendor_id ) {
+                    continue;
+                }
+
+                foreach ( $order->get_items() as $item_id => $item ) {
+                    $zip_url = $item->get_meta( '_vss_zakeke_printing_files_zip_url', true );
+
+                    if ( $zip_url ) {
+                        $files[] = [
+                            'url' => $zip_url,
+                            'name' => 'order_' . $order->get_order_number() . '_item_' . $item_id . '.zip'
+                        ];
+                    }
+                }
+            }
+
+            if ( empty( $files ) ) {
+                wp_send_json_error( [ 'message' => __( 'No Zakeke files found in selected orders.', 'vss' ) ] );
+            }
+
+            wp_send_json_success( [ 'files' => $files ] );
+        }
+
+
         /**
          * AJAX manual fetch zakeke zip handler
          */

@@ -28,6 +28,20 @@ trait VSS_Vendor_Dashboard {
             $user = wp_get_current_user();
             ?>
 
+            
+            <?php
+            $logo_id = get_user_meta( $vendor_id, 'vss_vendor_logo_id', true );
+            $logo_url = $logo_id ? wp_get_attachment_url( $logo_id ) : '';
+            ?>
+
+            <!-- Vendor Logo Display -->
+            <?php if ( $logo_url ) : ?>
+            <div class="vss-vendor-logo-header">
+                <img src="<?php echo esc_url( $logo_url ); ?>" alt="<?php echo esc_attr( $user->display_name ); ?>" class="vendor-logo">
+            </div>
+            <?php endif; ?>
+
+
             <!-- Page Header -->
             <div class="vss-page-header">
                 <h1><?php printf( __( 'Welcome back, %s!', 'vss' ), esc_html( $user->display_name ) ); ?></h1>

@@ -64,6 +64,11 @@ trait VSS_Vendor_Forms {
                     break;
 
                 case 'add_note':
+
+                case 'report_issue':
+                    self::handle_report_issue( $order, $redirect_args );
+                    break;
+
                     self::handle_add_note( $order, $redirect_args );
                     break;
             }
@@ -232,6 +237,136 @@ trait VSS_Vendor_Forms {
             exit;
         }
 
+
+
+        
+        /**
+         * Handle vendor issue reporting
+         */
+        private static function handle_report_issue( $order, &$redirect_args ) {
+            if ( ! check_admin_referer( 'vss_report_issue' ) ) {
+                wp_die( __( 'Security check failed.', 'vss' ) );
+            }
+
+            $priority = isset( $_POST['issue_priority'] ) ? sanitize_key( $_POST['issue_priority'] ) : 'low';
+            $message = isset( $_POST['issue_message'] ) ? sanitize_textarea_field( $_POST['issue_message'] ) : '';
+
+            if ( empty( $message ) ) {
+                $redirect_args['vss_error'] = 'issue_message_required';
+                wp_safe_redirect( add_query_arg( $redirect_args, get_permalink() ) );
+                exit;
+            }
+
+            // Save issue
+            $issues = get_post_meta( $order->get_id(), '_vss_vendor_issues', true ) ?: [];
+            $vendor = wp_get_current_user();
+
+            $new_issue = [
+                'vendor_id' => get_current_user_id(),
+                'vendor_name' => $vendor->display_name,
+                'timestamp' => current_time( 'timestamp' ),
+                'priority' => $priority,
+                'message' => $message,
+                'order_number' => $order->get_order_number(),
+                'order_id' => $order->get_id(),
+            ];
+
+            $issues[] = $new_issue;
+            update_post_meta( $order->get_id(), '_vss_vendor_issues', $issues );
+
+            // Add order note
+            $order->add_order_note( sprintf(
+                __( 'Vendor reported %s priority issue: %s', 'vss' ),
+                $priority,
+                $message
+            ) );
+
+            // Send notifications
+            self::send_issue_notifications( $new_issue, $order );
+
+            $redirect_args['vss_notice'] = 'issue_reported';
+            wp_safe_redirect( add_query_arg( $redirect_args, get_permalink() ) );
+            exit;
+        }
+
+        /**
+         * Send email and Slack notifications for issues
+         */
+        private static function send_issue_notifications( $issue, $order ) {
+            $settings = get_option( 'vss_zakeke_settings' );
+
+            // Email notification
+            $admin_email = isset( $settings['admin_email_notifications'] ) ? $settings['admin_email_notifications'] : get_option( 'admin_email' );
+
+            if ( $admin_email ) {
+                $subject = sprintf( '[%s Priority] Vendor Issue - Order #%s', ucfirst( $issue['priority'] ), $issue['order_number'] );
+
+                $message = "Vendor Issue Report\n\n";
+                $message .= "Order: #{$issue['order_number']}\n";
+                $message .= "Vendor: {$issue['vendor_name']}\n";
+                $message .= "Priority: " . ucfirst( $issue['priority'] ) . "\n";
+                $message .= "Time: " . date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $issue['timestamp'] ) . "\n\n";
+                $message .= "Issue Description:\n{$issue['message']}\n\n";
+                $message .= "View Order: " . admin_url( 'post.php?post=' . $issue['order_id'] . '&action=edit' );
+
+                wp_mail( $admin_email, $subject, $message );
+            }
+
+            // Slack notification
+            $webhook_url = isset( $settings['slack_webhook_url'] ) ? $settings['slack_webhook_url'] : '';
+            $channel = isset( $settings['slack_channel'] ) ? $settings['slack_channel'] : '#vendor-issues';
+
+            if ( $webhook_url ) {
+                $color = 'good';
+                if ( $issue['priority'] === 'high' ) $color = 'warning';
+                if ( $issue['priority'] === 'urgent' ) $color = 'danger';
+
+                $slack_message = [
+                    'channel' => $channel,
+                    'username' => 'Vendor Issue Bot',
+                    'icon_emoji' => ':warning:',
+                    'attachments' => [
+                        [
+                            'color' => $color,
+                            'title' => sprintf( '[%s Priority] Order #%s', ucfirst( $issue['priority'] ), $issue['order_number'] ),
+                            'fields' => [
+                                [
+                                    'title' => 'Vendor',
+                                    'value' => $issue['vendor_name'],
+                                    'short' => true,
+                                ],
+                                [
+                                    'title' => 'Priority',
+                                    'value' => ucfirst( $issue['priority'] ),
+                                    'short' => true,
+                                ],
+                                [
+                                    'title' => 'Issue Description',
+                                    'value' => $issue['message'],
+                                    'short' => false,
+                                ],
+                            ],
+                            'actions' => [
+                                [
+                                    'type' => 'button',
+                                    'text' => 'View Order',
+                                    'url' => admin_url( 'post.php?post=' . $issue['order_id'] . '&action=edit' ),
+                                ],
+                            ],
+                            'footer' => 'Vendor Order Manager',
+                            'ts' => $issue['timestamp'],
+                        ],
+                    ],
+                ];
+
+                wp_remote_post( $webhook_url, [
+                    'body' => json_encode( $slack_message ),
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                    ],
+                ] );
+            }
+        }
 
 
         /**

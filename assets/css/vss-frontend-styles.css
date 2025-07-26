@@ -857,3 +857,244 @@
         border: 1px solid #000;
     }
 }
+
+/* ==========================================================================
+   Priority Indicators
+   ========================================================================== */
+
+.vss-high-priority {
+    background-color: #f3e5ff !important;
+    border-left: 4px solid #9b59b6 !important;
+}
+
+.vss-urgent-priority {
+    background-color: #ffe5e5 !important;
+    border-left: 4px solid #e74c3c !important;
+}
+
+.vss-priority-indicator {
+    display: inline-block;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.vss-priority-high .dashicons {
+    color: #9b59b6;
+}
+
+.vss-priority-urgent .dashicons {
+    color: #e74c3c;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Admin styles for priority selector */
+.vss-priority-selector select {
+    font-size: 14px;
+    padding: 8px;
+}
+
+.vss-priority-selector select option[value="high"] {
+    background-color: #f3e5ff;
+    color: #9b59b6;
+}
+
+.vss-priority-selector select option[value="urgent"] {
+    background-color: #ffe5e5;
+    color: #e74c3c;
+}
+
+
+/* ==========================================================================
+   Advanced Search Styles
+   ========================================================================== */
+
+.vss-advanced-search {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.vss-advanced-search .search-fields {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.vss-search-input {
+    flex: 1;
+    padding: 10px 15px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+.vss-search-input:focus {
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+}
+
+.vss-search-type {
+    padding: 10px 15px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 16px;
+    min-width: 150px;
+}
+
+@media (max-width: 768px) {
+    .vss-advanced-search .search-fields {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .vss-search-input,
+    .vss-search-type {
+        width: 100%;
+    }
+}
+
+
+/* ==========================================================================
+   Filter Panel Styles
+   ========================================================================== */
+
+.vss-filters-section {
+    margin-bottom: 20px;
+}
+
+.vss-toggle-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.vss-toggle-filters.active {
+    background: #2271b1;
+    color: white;
+    border-color: #2271b1;
+}
+
+.vss-filter-panel {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 25px;
+    margin-top: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.vss-filter-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+}
+
+.filter-group h4 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #1f2937;
+}
+
+.date-range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.date-range-inputs input[type="date"] {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.date-separator {
+    color: #9ca3af;
+}
+
+.location-inputs {
+    display: flex;
+    gap: 10px;
+}
+
+.location-inputs select {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.filter-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+@media (max-width: 768px) {
+    .vss-filter-form {
+        grid-template-columns: 1fr;
+    }
+
+    .date-range-inputs,
+    .location-inputs {
+        flex-direction: column;
+    }
+
+    .date-range-inputs input[type="date"],
+    .location-inputs select {
+        width: 100%;
+    }
+}
+
+
+/* ==========================================================================
+   Vendor Logo Styles
+   ========================================================================== */
+
+.vss-vendor-logo-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.vss-vendor-logo-header .vendor-logo {
+    max-width: 250px;
+    max-height: 120px;
+    height: auto;
+    display: inline-block;
+}
+
+/* Profile page logo upload */
+.vss-logo-upload {
+    max-width: 400px;
+}
+
+.vss-logo-upload .logo-preview {
+    background: #f9f9f9;
+    padding: 20px;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.vss-logo-upload .button {
+    margin-right: 10px;
+    margin-top: 10px;
+}

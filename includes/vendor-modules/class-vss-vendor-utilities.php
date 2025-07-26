@@ -34,6 +34,9 @@ trait VSS_Vendor_Utilities {
                     'production_file_sent' => __( 'Production files sent for customer approval!', 'vss' ),
                     'settings_saved' => __( 'Settings saved successfully!', 'vss' ),
                     'file_uploaded' => __( 'File uploaded successfully!', 'vss' ),
+
+                    'issue_reported' => __( 'Issue reported successfully! Administrators have been notified.', 'vss' ),
+
                 ];
 
                 $notice_key = sanitize_key( $_GET['vss_notice'] );
@@ -52,6 +55,9 @@ trait VSS_Vendor_Utilities {
                     'invalid_approval_type' => __( 'Invalid approval type specified.', 'vss' ),
                     'permission_denied' => __( 'You do not have permission to perform this action.', 'vss' ),
                     'invalid_order' => __( 'Invalid order or you do not have permission to view it.', 'vss' ),
+
+                    'issue_message_required' => __( 'Please provide a description of the issue.', 'vss' ),
+
                 ];
 
                 $error_key = sanitize_key( $_GET['vss_error'] );
@@ -116,6 +122,81 @@ trait VSS_Vendor_Utilities {
                         <?php esc_html_e( 'days', 'vss' ); ?>
                     </td>
                 </tr>
+            
+                <tr>
+                    <th><label for="vss_vendor_logo"><?php esc_html_e( 'Company Logo', 'vss' ); ?></label></th>
+                    <td>
+                        <?php
+                        $logo_id = get_user_meta( $user->ID, 'vss_vendor_logo_id', true );
+                        $logo_url = $logo_id ? wp_get_attachment_url( $logo_id ) : '';
+                        ?>
+                        <div class="vss-logo-upload">
+                            <div class="logo-preview" style="margin-bottom: 10px;">
+                                <?php if ( $logo_url ) : ?>
+                                    <img src="<?php echo esc_url( $logo_url ); ?>" alt="<?php esc_attr_e( 'Company Logo', 'vss' ); ?>" 
+                                         style="max-width: 200px; height: auto; border: 1px solid #ddd; padding: 5px;">
+                                <?php else : ?>
+                                    <p><?php esc_html_e( 'No logo uploaded yet.', 'vss' ); ?></p>
+                                <?php endif; ?>
+                            </div>
+                            <input type="hidden" name="vss_vendor_logo_id" id="vss_vendor_logo_id" value="<?php echo esc_attr( $logo_id ); ?>">
+                            <button type="button" class="button vss-upload-logo-btn">
+                                <?php echo $logo_url ? esc_html__( 'Change Logo', 'vss' ) : esc_html__( 'Upload Logo', 'vss' ); ?>
+                            </button>
+                            <?php if ( $logo_url ) : ?>
+                                <button type="button" class="button vss-remove-logo-btn"><?php esc_html_e( 'Remove Logo', 'vss' ); ?></button>
+                            <?php endif; ?>
+                            <p class="description"><?php esc_html_e( 'Recommended size: 200x100 pixels. Max file size: 2MB.', 'vss' ); ?></p>
+                        </div>
+                        <script>
+                        jQuery(document).ready(function($) {
+                            var mediaUploader;
+
+                            $('.vss-upload-logo-btn').on('click', function(e) {
+                                e.preventDefault();
+
+                                if (mediaUploader) {
+                                    mediaUploader.open();
+                                    return;
+                                }
+
+                                mediaUploader = wp.media({
+                                    title: '<?php echo esc_js( __( 'Choose Logo', 'vss' ) ); ?>',
+                                    button: {
+                                        text: '<?php echo esc_js( __( 'Use This Logo', 'vss' ) ); ?>'
+                                    },
+                                    library: {
+                                        type: 'image'
+                                    },
+                                    multiple: false
+                                });
+
+                                mediaUploader.on('select', function() {
+                                    var attachment = mediaUploader.state().get('selection').first().toJSON();
+                                    $('#vss_vendor_logo_id').val(attachment.id);
+                                    $('.logo-preview').html('<img src="' + attachment.url + '" style="max-width: 200px; height: auto; border: 1px solid #ddd; padding: 5px;">');
+                                    $('.vss-upload-logo-btn').text('<?php echo esc_js( __( 'Change Logo', 'vss' ) ); ?>');
+
+                                    if (!$('.vss-remove-logo-btn').length) {
+                                        $('.vss-upload-logo-btn').after('<button type="button" class="button vss-remove-logo-btn"><?php echo esc_js( __( 'Remove Logo', 'vss' ) ); ?></button>');
+                                    }
+                                });
+
+                                mediaUploader.open();
+                            });
+
+                            $(document).on('click', '.vss-remove-logo-btn', function(e) {
+                                e.preventDefault();
+                                $('#vss_vendor_logo_id').val('');
+                                $('.logo-preview').html('<p><?php echo esc_js( __( 'No logo uploaded yet.', 'vss' ) ); ?></p>');
+                                $('.vss-upload-logo-btn').text('<?php echo esc_js( __( 'Upload Logo', 'vss' ) ); ?>');
+                                $(this).remove();
+                            });
+                        });
+                        </script>
+                    </td>
+                </tr>
+
             </table>
             <?php
         }
@@ -134,6 +215,9 @@ trait VSS_Vendor_Utilities {
                 'vss_company_name' => 'sanitize_text_field',
                 'vss_payment_email' => 'sanitize_email',
                 'vss_default_production_time' => 'intval',
+
+                'vss_vendor_logo_id' => 'intval',
+
             ];
 
             foreach ( $fields as $field => $sanitize_callback ) {

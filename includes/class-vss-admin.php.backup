@@ -76,7 +76,7 @@ class VSS_Admin {
         add_settings_field('vss_slack_webhook_url', __('Slack Webhook URL', 'vss'), [self::class, 'render_settings_field_input'], 'vss-zakeke-settings-page', 'vss_zakeke_api_section', ['id' => 'slack_webhook_url', 'type' => 'text', 'description' => __('Enter your Slack webhook URL for issue notifications.', 'vss')]);
         add_settings_field('vss_slack_channel', __('Slack Channel', 'vss'), [self::class, 'render_settings_field_input'], 'vss-zakeke-settings-page', 'vss_zakeke_api_section', ['id' => 'slack_channel', 'type' => 'text', 'description' => __('Enter the Slack channel for notifications (e.g., #vendor-issues).', 'vss')]);
         add_settings_field('vss_admin_email_notifications', __('Admin Email for Issues', 'vss'), [self::class, 'render_settings_field_input'], 'vss-zakeke-settings-page', 'vss_zakeke_api_section', ['id' => 'admin_email_notifications', 'type' => 'email', 'description' => __('Email address to receive vendor issue notifications.', 'vss')]);
-        add_settings_field('vss_zakeke_client_secret', __('Zakeke Client Secret', 'vss'), [self::class, 'render_settings_field_input'], 'vss-zakeke-settings-page', 'vss_zakeke_api_section', ['id' => 'client_secret', 'type' => 'password', 'description' => __('Enter your Zakeke API Client Secret.', 'vss')]);
+, __('Zakeke Client Secret', 'vss'), [self::class, 'render_settings_field_input'], 'vss-zakeke-settings-page', 'vss_zakeke_api_section', ['id' => 'client_secret', 'type' => 'password', 'description' => __('Enter your Zakeke API Client Secret.', 'vss')]);
     }
 
     /**

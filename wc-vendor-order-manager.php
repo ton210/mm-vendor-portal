@@ -328,7 +328,7 @@ class Vendor_Order_Manager {
         wp_localize_script( 'vss-frontend', 'vss_frontend_ajax', [
             'ajax_url' => admin_url( 'admin-ajax.php' ),
             'nonce' => wp_create_nonce( 'vss_frontend_nonce' ),
-            'debug' => VSS_DEBUG,
+            'debug' => defined('VSS_DEBUG') ? VSS_DEBUG : false,
             'version' => VSS_VERSION,
             'plugin_url' => VSS_PLUGIN_URL,
             'is_vendor' => $this->is_current_user_vendor(),
@@ -500,8 +500,8 @@ class Vendor_Order_Manager {
         // Check if we're on a VSS admin page or order page
         $is_vss_page = strpos( $hook, 'vss' ) !== false;
         $is_order_page = in_array( $hook, [ 'post.php', 'post-new.php' ] ) &&
-                         isset( $_GET['post'] ) &&
-                         get_post_type( $_GET['post'] ) === 'shop_order';
+                           isset( $_GET['post'] ) &&
+                           get_post_type( $_GET['post'] ) === 'shop_order';
         $is_orders_list = $hook === 'edit.php' && isset( $_GET['post_type'] ) && $_GET['post_type'] === 'shop_order';
 
         if ( $is_vss_page || $is_order_page || $is_orders_list ) {
@@ -555,7 +555,7 @@ class Vendor_Order_Manager {
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
                 'nonce' => wp_create_nonce( 'vss_admin_nonce' ),
                 'post_id' => isset( $_GET['post'] ) ? intval( $_GET['post'] ) : 0,
-                'debug' => VSS_DEBUG,
+                'debug' => defined('VSS_DEBUG') ? VSS_DEBUG : false,
             ] );
 
             // jQuery UI styles
@@ -644,7 +644,7 @@ class Vendor_Order_Manager {
             }
         }
 
-        
+
 
         // Add page-specific classes
         if ( is_page() ) {
@@ -662,18 +662,6 @@ class Vendor_Order_Manager {
         }
 
         return $classes;
-    }
-
-            add_action( 'wp_footer', function() {
-            if ( ! $this->should_load_vendor_assets() ) {
-                return;
-            }
-            ?>
-            <script>
-            
-            </script>
-            <?php
-        }, 999 );
     }
 
     /**
@@ -861,6 +849,19 @@ class Vendor_Order_Manager {
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
         dbDelta( $sql );
 
+        // Priority table
+        $table_name = $wpdb->prefix . 'vss_order_priority';
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+            order_id bigint(20) NOT NULL,
+            priority varchar(20) DEFAULT 'normal',
+            set_by bigint(20) DEFAULT NULL,
+            set_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (order_id),
+            KEY priority (priority)
+        ) $charset_collate;";
+
+        dbDelta( $sql );
+
         // Import log table for external orders
         if ( class_exists( 'VSS_External_Orders' ) ) {
             $table_name = $wpdb->prefix . 'vss_import_log';
@@ -1034,7 +1035,7 @@ class Vendor_Order_Manager {
      * @param string $level
      */
     public function log( $message, $level = 'info' ) {
-        if ( ! VSS_DEBUG ) {
+        if ( ! (defined('VSS_DEBUG') && VSS_DEBUG) ) {
             return;
         }
 
