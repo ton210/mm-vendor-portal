@@ -1,10 +1,8 @@
 <?php
 /**
  * VSS Vendor Orders Module
- * 
- * Order listing and management
- * 
- * @package VendorOrderManager
+ * * Order listing and management
+ * * @package VendorOrderManager
  * @subpackage Modules
  * @since 7.0.1
  */
@@ -391,7 +389,6 @@ trait VSS_Vendor_Orders {
         }
         </style>
 
-        <!-- Quick Tracking Modal -->
         <div id="vss-quick-tracking-modal" class="vss-modal" style="display: none;">
             <div class="vss-modal-content">
                 <div class="vss-modal-header">
@@ -815,36 +812,15 @@ trait VSS_Vendor_Orders {
             <?php self::render_order_status_bar( $order ); ?>
 
             <div class="vss-order-sections">
-                <!-- Order Overview Section -->
                 <div class="vss-order-section">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Order Overview', 'vss' ); ?></h3>
                     </div>
                     <div class="vss-section-content">
-                        <div class="overview-grid">
-                            <div class="overview-section">
-                                <h4><?php esc_html_e( 'Order Details', 'vss' ); ?></h4>
-                                <p><strong><?php esc_html_e( 'Order Date:', 'vss' ); ?></strong> <?php echo esc_html( $order->get_date_created()->date_i18n( wc_date_format() . ' ' . wc_time_format() ) ); ?></p>
-                                <p><strong><?php esc_html_e( 'Status:', 'vss' ); ?></strong> <?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?></p>
-                                <p><strong><?php esc_html_e( 'Total:', 'vss' ); ?></strong> <?php echo $order->get_formatted_order_total(); ?></p>
-                            </div>
-
-                            <div class="overview-section">
-                                <h4><?php esc_html_e( 'Customer Information', 'vss' ); ?></h4>
-                                <p><strong><?php esc_html_e( 'Name:', 'vss' ); ?></strong> <?php echo esc_html( $order->get_formatted_billing_full_name() ); ?></p>
-                                <p><strong><?php esc_html_e( 'Email:', 'vss' ); ?></strong> <a href="mailto:<?php echo esc_attr( $order->get_billing_email() ); ?>"><?php echo esc_html( $order->get_billing_email() ); ?></a></p>
-                                <p><strong><?php esc_html_e( 'Phone:', 'vss' ); ?></strong> <?php echo esc_html( $order->get_billing_phone() ); ?></p>
-                            </div>
-
-                            <div class="overview-section">
-                                <h4><?php esc_html_e( 'Shipping Address', 'vss' ); ?></h4>
-                                <?php echo wp_kses_post( $order->get_formatted_shipping_address() ); ?>
-                            </div>
-                        </div>
+                        <?php self::render_order_overview( $order ); ?>
                     </div>
                 </div>
 
-                <!-- Quick Actions Section -->
                 <?php if ( $order->has_status( 'processing' ) ) : ?>
                 <div class="vss-order-section vss-quick-actions-section">
                     <div class="vss-section-header">
@@ -858,27 +834,24 @@ trait VSS_Vendor_Orders {
                 </div>
                 <?php endif; ?>
 
-                <!-- Order Items Section -->
                 <div class="vss-order-section">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Order Items', 'vss' ); ?></h3>
                     </div>
                     <div class="vss-section-content">
-                        <?php self::render_order_items_table( $order ); ?>
+                        <?php self::render_order_products( $order ); ?>
                     </div>
                 </div>
 
-                <!-- Costs Section -->
                 <div class="vss-order-section">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Costs & Earnings', 'vss' ); ?></h3>
                     </div>
                     <div class="vss-section-content">
-                        <?php self::render_vendor_costs_section( $order ); ?>
+                        <?php self::render_costs_section( $order ); ?>
                     </div>
                 </div>
 
-                <!-- Files & Mockups Section -->
                 <div class="vss-order-section">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Files & Mockups', 'vss' ); ?></h3>
@@ -888,13 +861,12 @@ trait VSS_Vendor_Orders {
                     </div>
                 </div>
 
-                <!-- Order Notes Section -->
                 <div class="vss-order-section" id="section-notes">
                     <div class="vss-section-header">
                         <h3><?php esc_html_e( 'Order Notes', 'vss' ); ?></h3>
                     </div>
                     <div class="vss-section-content">
-                        <?php self::render_order_notes_section( $order ); ?>
+                        <?php self::render_notes_section( $order ); ?>
                     </div>
                 </div>
             </div>
@@ -1166,5 +1138,4 @@ trait VSS_Vendor_Orders {
         <?php
         endif;
     }
-
 }
