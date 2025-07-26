@@ -343,4 +343,3 @@ add_action( 'wp_ajax_vss_log_download_attempt', function() {
 
     wp_send_json_success();
 });
-שׂײַשׁ֜;צח;ז מת;תצם98ר
