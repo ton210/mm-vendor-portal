@@ -29,10 +29,7 @@ define( 'VSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'VSS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 define( 'VSS_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
-// Debug mode
-if ( ! defined( 'VSS_DEBUG' ) ) {
-    define( 'VSS_DEBUG', WP_DEBUG );
-}
+
 
 /**
  * Main plugin class
@@ -191,10 +188,7 @@ class Vendor_Order_Manager {
         // AJAX nonce for logged out users
         add_action( 'wp_head', [ $this, 'add_ajax_nonce' ] );
 
-        // Debug mode helpers
-        if ( VSS_DEBUG ) {
-            $this->add_debug_scripts();
-        }
+        
 
         // Ensure tab functionality
         $this->ensure_tab_functionality();
@@ -650,10 +644,7 @@ class Vendor_Order_Manager {
             }
         }
 
-        // Add debug class
-        if ( VSS_DEBUG ) {
-            $classes[] = 'vss-debug-mode';
-        }
+        
 
         // Add page-specific classes
         if ( is_page() ) {
@@ -673,53 +664,13 @@ class Vendor_Order_Manager {
         return $classes;
     }
 
-    /**
-     * Enhanced debug mode for tab issues
-     */
-    public function add_debug_scripts() {
-        if ( ! VSS_DEBUG ) {
-            return;
-        }
-
-        add_action( 'wp_footer', function() {
+            add_action( 'wp_footer', function() {
             if ( ! $this->should_load_vendor_assets() ) {
                 return;
             }
             ?>
             <script>
-            // VSS Debug Helper
-            (function() {
-                console.log('=== VSS DEBUG MODE ===');
-                console.log('jQuery loaded:', typeof jQuery !== 'undefined');
-                console.log('VSS object:', typeof window.VSS);
-                console.log('vss object:', typeof window.vss);
-                console.log('vss_frontend_ajax:', typeof window.vss_frontend_ajax);
-
-                // Check for tab elements
-                if (typeof jQuery !== 'undefined') {
-                    jQuery(document).ready(function($) {
-                        console.log('Tab containers found:', $('.vss-order-tabs').length);
-                        console.log('Tab links found:', $('.vss-order-tabs .nav-tab').length);
-                        console.log('Tab contents found:', $('.vss-tab-content').length);
-                        console.log('Active tabs:', $('.nav-tab-active').length);
-                        console.log('Visible tab contents:', $('.vss-tab-content:visible').length);
-
-                        // List all tabs and their targets
-                        $('.vss-order-tabs .nav-tab').each(function(i) {
-                            var $tab = $(this);
-                            var target = $tab.attr('href');
-                            var $target = $(target);
-                            console.log('Tab ' + i + ':', {
-                                text: $tab.text().trim(),
-                                href: target,
-                                isActive: $tab.hasClass('nav-tab-active'),
-                                targetExists: $target.length > 0,
-                                targetVisible: $target.is(':visible')
-                            });
-                        });
-                    });
-                }
-            })();
+            
             </script>
             <?php
         }, 999 );

@@ -248,6 +248,280 @@ trait VSS_Vendor_Orders {
                 }
             }
             </style>
+            
+            
+<!-- Quick Tracking Modal -->
+<div id="vss-quick-tracking-modal" class="vss-modal" style="display: none;">
+    <div class="vss-modal-content">
+        <div class="vss-modal-header">
+            <h3><?php esc_html_e( 'Add Tracking Information', 'vss' ); ?></h3>
+            <button type="button" class="vss-modal-close">&times;</button>
+        </div>
+        <div class="vss-modal-body">
+            <form id="vss-quick-tracking-form">
+                <input type="hidden" id="vss-quick-tracking-order-id" name="order_id" value="">
+
+                <div class="vss-form-group">
+                    <label for="vss-quick-tracking-carrier"><?php esc_html_e( 'Shipping Carrier:', 'vss' ); ?> <span class="required">*</span></label>
+                    <select id="vss-quick-tracking-carrier" name="tracking_carrier" required>
+                        <option value=""><?php esc_html_e( '— Select Carrier —', 'vss' ); ?></option>
+                        <optgroup label="<?php esc_attr_e( 'United States', 'vss' ); ?>">
+                            <option value="usps">USPS</option>
+                            <option value="ups">UPS</option>
+                            <option value="fedex">FedEx</option>
+                            <option value="dhl_us">DHL Express</option>
+                        </optgroup>
+                        <optgroup label="<?php esc_attr_e( 'International', 'vss' ); ?>">
+                            <option value="dhl">DHL Global</option>
+                            <option value="australia_post"><?php esc_html_e( 'Australia Post', 'vss' ); ?></option>
+                            <option value="royal_mail"><?php esc_html_e( 'Royal Mail (UK)', 'vss' ); ?></option>
+                            <option value="canada_post"><?php esc_html_e( 'Canada Post', 'vss' ); ?></option>
+                        </optgroup>
+                        <option value="other"><?php esc_html_e( 'Other', 'vss' ); ?></option>
+                    </select>
+                </div>
+
+                <div class="vss-form-group">
+                    <label for="vss-quick-tracking-number"><?php esc_html_e( 'Tracking Number:', 'vss' ); ?> <span class="required">*</span></label>
+                    <input type="text" id="vss-quick-tracking-number" name="tracking_number" required 
+                           placeholder="<?php esc_attr_e( 'Enter tracking number', 'vss' ); ?>">
+                </div>
+
+                <div class="vss-form-group">
+                    <p class="vss-form-notice">
+                        <strong><?php esc_html_e( 'Note:', 'vss' ); ?></strong>
+                        <?php esc_html_e( 'This will mark the order as "Shipped" and notify the customer.', 'vss' ); ?>
+                    </p>
+                </div>
+            </form>
+        </div>
+        <div class="vss-modal-footer">
+            <button type="button" class="button vss-modal-cancel"><?php esc_html_e( 'Cancel', 'vss' ); ?></button>
+            <button type="button" class="button button-primary vss-modal-submit"><?php esc_html_e( 'Save & Mark as Shipped', 'vss' ); ?></button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Quick Tracking Modal Styles */
+.vss-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vss-modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.vss-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.vss-modal-header h3 {
+    margin: 0;
+    font-size: 1.25em;
+}
+
+.vss-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vss-modal-close:hover {
+    color: #000;
+}
+
+.vss-modal-body {
+    padding: 20px;
+}
+
+.vss-form-group {
+    margin-bottom: 20px;
+}
+
+.vss-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.vss-form-group input,
+.vss-form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+.vss-form-group input:focus,
+.vss-form-group select:focus {
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+}
+
+.vss-modal-footer {
+    padding: 20px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.vss-form-notice {
+    background: #fff3cd;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #ffc107;
+    margin: 0;
+}
+
+.required {
+    color: #d32f2f;
+}
+
+/* Add tracking button in order rows */
+.vss-quick-tracking-btn {
+    margin-left: 5px;
+}
+
+@media (max-width: 768px) {
+    .vss-modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+}
+</style>
+
+
+            <script>
+            
+// Quick Tracking Functionality
+jQuery(document).ready(function($) {
+    'use strict';
+
+    // Quick tracking button click handler
+    $(document).on('click', '.vss-quick-tracking-btn', function(e) {
+        e.preventDefault();
+
+        var orderId = $(this).data('order-id');
+        $('#vss-quick-tracking-order-id').val(orderId);
+        $('#vss-quick-tracking-modal').fadeIn(200);
+
+        // Reset form
+        $('#vss-quick-tracking-form')[0].reset();
+    });
+
+    // Modal close handlers
+    $('.vss-modal-close, .vss-modal-cancel').on('click', function() {
+        $('#vss-quick-tracking-modal').fadeOut(200);
+    });
+
+    // Click outside modal to close
+    $('#vss-quick-tracking-modal').on('click', function(e) {
+        if ($(e.target).hasClass('vss-modal')) {
+            $(this).fadeOut(200);
+        }
+    });
+
+    // Submit handler
+    $('.vss-modal-submit').on('click', function() {
+        var $form = $('#vss-quick-tracking-form');
+        var $button = $(this);
+
+        // Validate form
+        if (!$form[0].checkValidity()) {
+            $form[0].reportValidity();
+            return;
+        }
+
+        // Disable button and show loading
+        $button.prop('disabled', true).text('<?php esc_js_e( 'Saving...', 'vss' ); ?>');
+
+        // Prepare data
+        var formData = {
+            action: 'vss_quick_save_tracking',
+            order_id: $('#vss-quick-tracking-order-id').val(),
+            tracking_carrier: $('#vss-quick-tracking-carrier').val(),
+            tracking_number: $('#vss-quick-tracking-number').val(),
+            nonce: vss_frontend_ajax.nonce
+        };
+
+        // Submit via AJAX
+        $.ajax({
+            url: vss_frontend_ajax.ajax_url,
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    // Close modal
+                    $('#vss-quick-tracking-modal').fadeOut(200);
+
+                    // Show success message
+                    var successHtml = '<div class="vss-success-notice"><p>' + response.data.message + '</p></div>';
+                    $('.vss-orders-table').before(successHtml);
+
+                    // Update order row if needed
+                    var $row = $('tr').find('[data-order-id="' + formData.order_id + '"]').closest('tr');
+                    if ($row.length) {
+                        // Update status badge
+                        $row.find('.status-badge').removeClass('processing').addClass('shipped').text('<?php esc_js_e( 'Shipped', 'vss' ); ?>');
+
+                        // Replace quick tracking button with tracking info
+                        var trackingHtml = '<small><?php esc_js_e( 'Tracking:', 'vss' ); ?> ' + formData.tracking_number + '</small>';
+                        $row.find('.vss-quick-tracking-btn').replaceWith(trackingHtml);
+                    }
+
+                    // Remove success message after 5 seconds
+                    setTimeout(function() {
+                        $('.vss-success-notice').fadeOut(function() {
+                            $(this).remove();
+                        });
+                    }, 5000);
+
+                } else {
+                    alert(response.data.message || '<?php esc_js_e( 'An error occurred. Please try again.', 'vss' ); ?>');
+                }
+            },
+            error: function() {
+                alert('<?php esc_js_e( 'Connection error. Please try again.', 'vss' ); ?>');
+            },
+            complete: function() {
+                $button.prop('disabled', false).text('<?php esc_js_e( 'Save & Mark as Shipped', 'vss' ); ?>');
+            }
+        });
+    });
+});
+
+            </script>
+
             <?php
         }
 
@@ -304,6 +578,13 @@ trait VSS_Vendor_Orders {
                     <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], get_permalink() ) ); ?>">
                         <?php esc_html_e( 'View', 'vss' ); ?>
                     </a>
+                
+                    <?php if ( $order->has_status( 'processing' ) ) : ?>
+                        <button type="button" class="button button-small vss-quick-tracking-btn" 
+                                data-order-id="<?php echo esc_attr( $order_id ); ?>">
+                            <?php esc_html_e( 'Add Tracking', 'vss' ); ?>
+                        </button>
+                    <?php endif; ?>
                 </td>
             </tr>
             <?php
@@ -328,173 +609,7 @@ trait VSS_Vendor_Orders {
             }
 
             // Debug information (only show if VSS_DEBUG is true)
-            if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
-                ?>
-                <div class="vss-debug-info" style="background: #f0f0f0; padding: 20px; margin: 20px 0; border: 2px solid #999;">
-                    <h3>Debug Information</h3>
-                    <p><strong>Order ID:</strong> <?php echo esc_html( $order_id ); ?></p>
-                    <p><strong>Order Status:</strong> <?php echo esc_html( $order->get_status() ); ?></p>
-                    <p><strong>Has Processing Status:</strong> <?php echo $order->has_status( 'processing' ) ? 'YES' : 'NO'; ?></p>
-                    <p><strong>Ship Date:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_estimated_ship_date', true ) ?: 'Not set' ); ?></p>
-                    <p><strong>Mockup Status:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_mockup_status', true ) ?: 'Not set' ); ?></p>
-                    <p><strong>Production File Status:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_production_file_status', true ) ?: 'Not set' ); ?></p>
-                    <p><strong>Tracking Number:</strong> <?php echo esc_html( get_post_meta( $order_id, '_vss_tracking_number', true ) ?: 'Not set' ); ?></p>
-                </div>
-                <?php
-            }
-
-            $portal_url = get_permalink();
-            ?>
-            <div class="vss-order-details-wrapper vss-single-page-layout">
-                <div class="vss-order-header">
-                    <h2><?php printf( __( 'Order #%s Details', 'vss' ), esc_html( $order->get_order_number() ) ); ?></h2>
-                    <a href="<?php echo esc_url( add_query_arg( 'vss_action', 'dashboard', $portal_url ) ); ?>" class="button">
-                        <span class="dashicons dashicons-arrow-left-alt"></span>
-                        <?php esc_html_e( 'Back to Dashboard', 'vss' ); ?>
-                    </a>
-                </div>
-
-                <?php
-                // Order status bar
-                self::render_order_status_bar( $order );
-
-                // Production confirmation section
-                self::render_vendor_production_confirmation_section( $order );
-                ?>
-
-                <div class="vss-order-sections">
-
-                    <div class="vss-order-section" id="section-overview">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Order Overview', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php self::render_order_overview( $order ); ?>
-                        </div>
-                    </div>
-
-                    <div class="vss-order-section" id="section-products">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Products & Design Files', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php self::render_order_products( $order ); ?>
-                        </div>
-                    </div>
-
-                    <!-- Mockup Approval Section (Full Width) -->
-                    <div class="vss-order-section" id="section-mockup">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Mockup Approval', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php
-                            // Add debug output
-                            if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
-                                echo '<div class="debug-info" style="background: #ffffcc; padding: 10px; margin-bottom: 20px;">';
-                                echo '<strong>DEBUG:</strong> Rendering mockup section for order ' . $order->get_id();
-                                echo ' | Status: ' . $order->get_status();
-                                echo ' | Has processing: ' . ($order->has_status('processing') ? 'YES' : 'NO');
-                                echo '</div>';
-                            }
-
-                            self::render_approval_section( $order, 'mockup' );
-                            ?>
-                        </div>
-                    </div>
-
-                    <!-- Production Files Section (Full Width) -->
-                    <div class="vss-order-section" id="section-production">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Production Files', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php
-                            // Add debug output
-                            if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
-                                echo '<div class="debug-info" style="background: #ffffcc; padding: 10px; margin-bottom: 20px;">';
-                                echo '<strong>DEBUG:</strong> Rendering production section for order ' . $order->get_id();
-                                echo ' | Status: ' . $order->get_status();
-                                echo ' | Has processing: ' . ($order->has_status('processing') ? 'YES' : 'NO');
-                                echo '</div>';
-                            }
-
-                            self::render_approval_section( $order, 'production_file' );
-                            ?>
-                        </div>
-                    </div>
-
-                    <!-- Costs and Shipping Row -->
-                    <div class="vss-order-row vss-two-column-row">
-                        <!-- Costs Section -->
-                        <div class="vss-order-section vss-half-width" id="section-costs">
-                            <div class="vss-section-header">
-                                <h3><?php esc_html_e( 'Order Costs', 'vss' ); ?></h3>
-                            </div>
-                            <div class="vss-section-content">
-                                <?php self::render_costs_section( $order ); ?>
-                            </div>
-                        </div>
-
-                        <!-- Shipping Section -->
-                        <div class="vss-order-section vss-half-width" id="section-shipping">
-                            <div class="vss-section-header">
-                                <h3><?php esc_html_e( 'Shipping Information', 'vss' ); ?></h3>
-                            </div>
-                            <div class="vss-section-content">
-                                <?php
-                                // Add debug output
-                                if ( defined( 'VSS_DEBUG' ) && VSS_DEBUG ) {
-                                    echo '<div class="debug-info" style="background: #ffffcc; padding: 10px; margin-bottom: 20px;">';
-                                    echo '<strong>DEBUG:</strong> Rendering shipping section for order ' . $order->get_id();
-                                    echo ' | Status: ' . $order->get_status();
-                                    echo ' | Has processing: ' . ($order->has_status('processing') ? 'YES' : 'NO');
-                                    $tracking = get_post_meta( $order->get_id(), '_vss_tracking_number', true );
-                                    echo ' | Tracking: ' . ($tracking ?: 'Not set');
-                                    echo '</div>';
-                                }
-
-                                self::render_shipping_section( $order );
-                                ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="vss-order-section" id="section-notes">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Order Notes & Communication', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php self::render_notes_section( $order ); ?>
-                        </div>
-                    </div>
-
-                    <div class="vss-order-section" id="section-files">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'All Order Files', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <?php self::render_files_section( $order ); ?>
-                        </div>
-                    </div>
-
-                    <div class="vss-order-section vss-quick-actions-section">
-                        <div class="vss-section-header">
-                            <h3><?php esc_html_e( 'Quick Actions', 'vss' ); ?></h3>
-                        </div>
-                        <div class="vss-section-content">
-                            <div class="vss-action-buttons">
-                                <?php if ( $order->has_status( 'processing' ) ) : ?>
-                                    <a href="#section-shipping" class="button button-primary vss-smooth-scroll">
-                                        <?php esc_html_e( 'Add Tracking Info', 'vss' ); ?>
-                                    </a>
-                                    <a href="#section-costs" class="button vss-smooth-scroll">
-                                        <?php esc_html_e( 'Update Costs', 'vss' ); ?>
-                                    </a>
-                                    <a href="#section-mockup" class="button vss-smooth-scroll">
-                                        <?php esc_html_e( 'Upload Mockup', 'vss' ); ?>
-                                    </a>
-                                <?php endif; ?>
+            
                                 <a href="#section-notes" class="button vss-smooth-scroll">
                                     <?php esc_html_e( 'Add Note', 'vss' ); ?>
                                 </a>
@@ -937,13 +1052,7 @@ trait VSS_Vendor_Orders {
                 }
             }
 
-            /* Debug styles */
-            .debug-info {
-                font-family: monospace;
-                font-size: 12px;
-                border: 1px dashed #666;
-                border-radius: 4px;
-            }
+            
             </style>
             <?php
         }

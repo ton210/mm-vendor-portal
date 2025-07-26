@@ -45,6 +45,7 @@ trait VSS_Vendor_Initialization {
 
             // AJAX handlers
             add_action( 'wp_ajax_vss_manual_fetch_zip', [ self::class, 'ajax_manual_fetch_zakeke_zip' ] );
+            add_action( 'wp_ajax_vss_quick_save_tracking', [ self::class, 'ajax_quick_save_tracking' ] );
             add_action( 'wp_ajax_vss_save_draft', [ self::class, 'ajax_save_draft' ] );
             add_action( 'wp_ajax_vss_get_order_details', [ self::class, 'ajax_get_order_details' ] );
             add_action( 'wp_ajax_nopriv_vss_track_order', [ self::class, 'ajax_track_order' ] );

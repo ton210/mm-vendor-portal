@@ -389,5 +389,50 @@ trait VSS_Vendor_Ajax {
             ] );
         }
 
+        /**
+         * AJAX quick save tracking handler
+         */
+        public static function ajax_quick_save_tracking() {
+            check_ajax_referer( 'vss_frontend_nonce', 'nonce' );
+
+            if ( ! self::is_current_user_vendor() ) {
+                wp_send_json_error( [ 'message' => __( 'Permission denied.', 'vss' ) ] );
+            }
+
+            $order_id = isset( $_POST['order_id'] ) ? intval( $_POST['order_id'] ) : 0;
+            $tracking_carrier = isset( $_POST['tracking_carrier'] ) ? sanitize_text_field( $_POST['tracking_carrier'] ) : '';
+            $tracking_number = isset( $_POST['tracking_number'] ) ? sanitize_text_field( $_POST['tracking_number'] ) : '';
+
+            if ( ! $order_id || ! $tracking_carrier || ! $tracking_number ) {
+                wp_send_json_error( [ 'message' => __( 'Missing required information.', 'vss' ) ] );
+            }
+
+            // Verify vendor has access to this order
+            $order = wc_get_order( $order_id );
+            if ( ! $order || get_post_meta( $order_id, '_vss_vendor_user_id', true ) != get_current_user_id() ) {
+                wp_send_json_error( [ 'message' => __( 'Invalid order or permission denied.', 'vss' ) ] );
+            }
+
+            // Save tracking information
+            update_post_meta( $order_id, '_vss_tracking_number', $tracking_number );
+            update_post_meta( $order_id, '_vss_tracking_carrier', $tracking_carrier );
+            update_post_meta( $order_id, '_vss_shipped_at', current_time( 'timestamp' ) );
+
+            // Update order status to shipped
+            $order->update_status( 'shipped', __( 'Order marked as shipped by vendor with tracking information.', 'vss' ) );
+
+            // Send notification email
+            do_action( 'vss_order_shipped', $order_id, $tracking_number, $tracking_carrier );
+
+            wp_send_json_success( [
+                'message' => __( 'Tracking information saved and order marked as shipped!', 'vss' ),
+                'order_id' => $order_id,
+                'tracking_number' => $tracking_number,
+                'tracking_carrier' => $tracking_carrier,
+            ] );
+        }
+
+
+
 
 }
