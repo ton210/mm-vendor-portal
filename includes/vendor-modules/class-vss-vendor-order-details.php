@@ -1,739 +1,393 @@
 <?php
 /**
- * VSS Vendor Order Details Module
- * 
- * Order detail views and sections
- * 
- * @package VendorOrderManager
- * @subpackage Modules
- * @since 7.0.1
+ * Enhanced Costs Section
+ * Add this method to replace the existing render_costs_section
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
+private static function render_costs_section( $order ) {
+    $costs = get_post_meta( $order->get_id(), '_vss_order_costs', true );
+    if ( ! is_array( $costs ) ) {
+        $costs = [
+            'material_cost' => 0,
+            'labor_cost' => 0,
+            'shipping_cost' => 0,
+            'other_cost' => 0,
+            'total_cost' => 0,
+        ];
+    }
+    
+    $order_status = $order->get_status();
+    $can_edit = in_array( $order_status, ['pending', 'processing', 'on-hold', 'in-production', 'shipped'] );
+    ?>
+    <div class="vss-costs-section">
+        <h4><?php esc_html_e( 'Order Costs', 'vss' ); ?></h4>
 
-/**
- * Trait for Order Details functionality
- */
-trait VSS_Vendor_Order_Details {
-
-
-        /**
-         * Render order overview
-         */
-        private static function render_order_overview( $order ) {
-            ?>
-            <div class="vss-order-overview">
-                <div class="overview-grid">
-                    <div class="overview-section">
-                        <h4><?php esc_html_e( 'Order Information', 'vss' ); ?></h4>
-                        <p><strong><?php esc_html_e( 'Order Number:', 'vss' ); ?></strong> #<?php echo esc_html( $order->get_order_number() ); ?></p>
-                        <p><strong><?php esc_html_e( 'Date Created:', 'vss' ); ?></strong> <?php echo esc_html( $order->get_date_created()->date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?></p>
-                        <p><strong><?php esc_html_e( 'Status:', 'vss' ); ?></strong> <?php echo esc_html( wc_get_order_status_name( $order->get_status() ) ); ?></p>
-                        <?php
-                        $ship_date = get_post_meta( $order->get_id(), '_vss_estimated_ship_date', true );
-                        if ( $ship_date ) :
-                        ?>
-                        <p><strong><?php esc_html_e( 'Estimated Ship Date:', 'vss' ); ?></strong> <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $ship_date ) ) ); ?></p>
-                        <?php endif; ?>
+        <?php if ( $costs['total_cost'] > 0 ) : ?>
+            <div class="costs-summary">
+                <div class="cost-breakdown">
+                    <div class="cost-line">
+                        <span class="cost-label"><?php esc_html_e( 'Materials:', 'vss' ); ?></span>
+                        <span class="cost-value"><?php echo wc_price( $costs['material_cost'] ); ?></span>
                     </div>
-
-                    <div class="overview-section">
-                        <h4><?php esc_html_e( 'Customer Information', 'vss' ); ?></h4>
-                        <p><strong><?php esc_html_e( 'Name:', 'vss' ); ?></strong> <?php echo esc_html( $order->get_formatted_billing_full_name() ); ?></p>
-                        <p><strong><?php esc_html_e( 'Email:', 'vss' ); ?></strong> <?php echo esc_html( $order->get_billing_email() ); ?></p>
-                        <?php if ( $order->get_billing_phone() ) : ?>
-                        <p><strong><?php esc_html_e( 'Phone:', 'vss' ); ?></strong> <?php echo esc_html( $order->get_billing_phone() ); ?></p>
-                        <?php endif; ?>
+                    <div class="cost-line">
+                        <span class="cost-label"><?php esc_html_e( 'Labor:', 'vss' ); ?></span>
+                        <span class="cost-value"><?php echo wc_price( $costs['labor_cost'] ); ?></span>
                     </div>
-
-                    <div class="overview-section">
-                        <h4><?php esc_html_e( 'Shipping Address', 'vss' ); ?></h4>
-                        <div class="shipping-address">
-                            <?php echo wp_kses_post( $order->get_formatted_shipping_address() ?: $order->get_formatted_billing_address() ); ?>
+                    <div class="cost-line">
+                        <span class="cost-label"><?php esc_html_e( 'Shipping:', 'vss' ); ?></span>
+                        <span class="cost-value"><?php echo wc_price( $costs['shipping_cost'] ); ?></span>
+                    </div>
+                    <?php if ( $costs['other_cost'] > 0 ) : ?>
+                        <div class="cost-line">
+                            <span class="cost-label"><?php esc_html_e( 'Other:', 'vss' ); ?></span>
+                            <span class="cost-value"><?php echo wc_price( $costs['other_cost'] ); ?></span>
                         </div>
+                    <?php endif; ?>
+                    <div class="cost-line cost-total">
+                        <span class="cost-label"><?php esc_html_e( 'Total Cost:', 'vss' ); ?></span>
+                        <span class="cost-value"><?php echo wc_price( $costs['total_cost'] ); ?></span>
                     </div>
                 </div>
-            </div>
-            <?php
-        }
 
-
-
-        /**
-         * Modified render_order_products method to use secure download URLs
-         * Replace the existing method in class-vss-vendor.php
-         */
-        private static function render_order_products( $order ) {
-            ?>
-            <div class="vss-order-products">
-                <h4><?php esc_html_e( 'Order Items', 'vss' ); ?></h4>
-                <table class="vss-items-table">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e( 'Product', 'vss' ); ?></th>
-                            <th><?php esc_html_e( 'SKU', 'vss' ); ?></th>
-                            <th><?php esc_html_e( 'Quantity', 'vss' ); ?></th>
-                            <th><?php esc_html_e( 'Design Files', 'vss' ); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ( $order->get_items() as $item_id => $item ) : ?>
-                            <?php
-                            $product = $item->get_product();
-                            $zakeke_data = $item->get_meta( 'zakeke_data', true );
-                            $zip_url = $item->get_meta( '_vss_zakeke_printing_files_zip_url', true );
-                            $primary_zakeke_design_id = null;
-
-                            // Parse Zakeke data to get design ID
-                            if ( $zakeke_data ) {
-                                $parsed_data = is_string( $zakeke_data ) ? json_decode( $zakeke_data, true ) : (array) $zakeke_data;
-                                if ( is_array( $parsed_data ) && isset( $parsed_data['design'] ) ) {
-                                    $primary_zakeke_design_id = $parsed_data['design'];
-                                }
-                            }
-                            ?>
-                            <tr>
-                                <td>
-                                    <strong><?php echo esc_html( $item->get_name() ); ?></strong>
-                                    <?php if ( $product && $product->get_image_id() ) : ?>
-                                        <br><?php echo wp_get_attachment_image( $product->get_image_id(), 'thumbnail' ); ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?php echo esc_html( $product ? $product->get_sku() : '—' ); ?></td>
-                                <td><?php echo esc_html( $item->get_quantity() ); ?></td>
-                                <td>
-                                    <?php if ( $zip_url ) : ?>
-                                        <a href="<?php echo esc_url( $zip_url ); ?>" class="button button-small" target="_blank">
-                                            <?php esc_html_e( 'Download Zakeke Files', 'vss' ); ?>
-                                        </a>
-                                    <?php elseif ( $primary_zakeke_design_id ) : ?>
-                                        <button type="button" class="button button-small vss-manual-fetch-zakeke-zip"
-                                                data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
-                                                data-item-id="<?php echo esc_attr( $item_id ); ?>"
-                                                data-zakeke-design-id="<?php echo esc_attr( $primary_zakeke_design_id ); ?>">
-                                            <?php esc_html_e( 'Fetch Zakeke Files', 'vss' ); ?>
-                                        </button>
-                                    <?php else : ?>
-                                        <?php
-                                        // Check if there's an admin uploaded ZIP file
-                                        $admin_zip_id = get_post_meta( $order->get_id(), '_vss_attached_zip_id', true );
-                                        if ( $admin_zip_id ) :
-                                            // Use secure download URL instead of direct attachment URL
-                                            $secure_download_url = self::get_secure_download_url( $admin_zip_id, $order->get_id() );
-                                        ?>
-                                            <a href="<?php echo esc_url( $secure_download_url ); ?>"
-                                               class="button button-small vss-admin-zip-download"
-                                               data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
-                                               data-file-id="<?php echo esc_attr( $admin_zip_id ); ?>">
-                                                <?php esc_html_e( 'Download Admin ZIP', 'vss' ); ?>
-                                            </a>
-                                        <?php else : ?>
-                                            <span class="no-files"><?php esc_html_e( 'No design files', 'vss' ); ?></span>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <script>
-            jQuery(document).ready(function($) {
-                // Handle Zakeke file fetching (existing code)
-                $('.vss-manual-fetch-zakeke-zip').on('click', function() {
-                    var $button = $(this);
-                    var originalText = $button.text();
-
-                    $button.prop('disabled', true).text('<?php esc_js_e( 'Fetching...', 'vss' ); ?>');
-
-                    $.ajax({
-                        url: vss_frontend_ajax.ajax_url,
-                        type: 'POST',
-                        data: {
-                            action: 'vss_manual_fetch_zip',
-                            order_id: $button.data('order-id'),
-                            item_id: $button.data('item-id'),
-                            primary_zakeke_design_id: $button.data('zakeke-design-id'),
-                            _ajax_nonce: vss_frontend_ajax.nonce
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                // Replace button with download link
-                                var downloadLink = '<a href="' + response.data.zip_url + '" class="button button-small" target="_blank"><?php esc_js_e( 'Download Zakeke Files', 'vss' ); ?></a>';
-                                $button.replaceWith(downloadLink);
-                            } else {
-                                alert(response.data.message || '<?php esc_js_e( 'Failed to fetch files. Please try again.', 'vss' ); ?>');
-                                $button.prop('disabled', false).text(originalText);
-                            }
-                        },
-                        error: function() {
-                            alert('<?php esc_js_e( 'An error occurred. Please try again.', 'vss' ); ?>');
-                            $button.prop('disabled', false).text(originalText);
-                        }
-                    });
-                });
-
-                // Optional: Add progress tracking for admin ZIP downloads
-                $('.vss-admin-zip-download').on('click', function(e) {
-                    var $link = $(this);
-                    var downloadStarted = false;
-
-                    // Show download started message
-                    var $message = $('<span class="download-message" style="margin-left: 10px; color: #2271b1;"><?php esc_js_e( 'Download starting...', 'vss' ); ?></span>');
-                    $link.after($message);
-
-                    // Remove message after a few seconds
-                    setTimeout(function() {
-                        $message.fadeOut(function() {
-                            $(this).remove();
-                        });
-                    }, 3000);
-
-                    // Track if download started (optional)
-                    var orderId = $link.data('order-id');
-                    var fileId = $link.data('file-id');
-
-                    // Log download attempt via AJAX (optional)
-                    $.post(vss_frontend_ajax.ajax_url, {
-                        action: 'vss_log_download_attempt',
-                        order_id: orderId,
-                        file_id: fileId,
-                        _ajax_nonce: vss_frontend_ajax.nonce
-                    });
-                });
-            });
-            </script>
-            <?php
-        }
-
-
-
-        /**
-         * Render approval section with better visibility and status feedback
-         * Replace the existing render_approval_section method with this updated version
-         */
-        private static function render_approval_section( $order, $type ) {
-            $type_label = $type === 'mockup' ? __( 'Mockup', 'vss' ) : __( 'Production Files', 'vss' );
-            $files = get_post_meta( $order->get_id(), '_vss_' . $type . '_files', true );
-            $status = get_post_meta( $order->get_id(), '_vss_' . $type . '_status', true );
-            $order_status = $order->get_status();
-            ?>
-            <div class="vss-approval-section">
-                <h4><?php echo esc_html( $type_label ); ?> <?php esc_html_e( 'Approval', 'vss' ); ?></h4>
-
-                <?php if ( $files && $status ) : ?>
-                    <div class="approval-status">
-                        <p><strong><?php esc_html_e( 'Status:', 'vss' ); ?></strong>
-                            <span class="status-<?php echo esc_attr( $status ); ?>">
-                                <?php
-                                $status_labels = [
-                                    'pending' => __( 'Pending Customer Review', 'vss' ),
-                                    'approved' => __( 'Approved', 'vss' ),
-                                    'disapproved' => __( 'Disapproved - Revision Needed', 'vss' ),
-                                ];
-                                echo esc_html( $status_labels[ $status ] ?? ucfirst( $status ) );
-                                ?>
-                            </span>
-                        </p>
-
-                        <h5><?php esc_html_e( 'Submitted Files:', 'vss' ); ?></h5>
-                        <ul class="approval-files">
-                            <?php foreach ( $files as $file_url ) : ?>
-                                <li>
-                                    <a href="<?php echo esc_url( $file_url ); ?>" target="_blank">
-                                        <span class="dashicons dashicons-media-default"></span>
-                                        <?php echo esc_html( basename( $file_url ) ); ?>
-                                    </a>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-
-                        <?php if ( $status === 'disapproved' ) : ?>
-                            <?php
-                            $disapproval_reason = get_post_meta( $order->get_id(), '_vss_' . $type . '_disapproval_reason', true );
-                            if ( $disapproval_reason ) : ?>
-                                <div class="disapproval-reason">
-                                    <strong><?php esc_html_e( 'Customer Feedback:', 'vss' ); ?></strong>
-                                    <p><?php echo esc_html( $disapproval_reason ); ?></p>
-                                </div>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </div>
-                <?php else : ?>
-                    <p class="no-approval-info">
-                        <?php printf( __( 'No %s files have been submitted yet.', 'vss' ), strtolower( $type_label ) ); ?>
-                    </p>
-                <?php endif; ?>
-
-                <?php
-                // Show upload form conditions
-                $can_upload = false;
-                $message = '';
-
-                if ( ! in_array( $order_status, [ 'processing', 'pending' ] ) ) {
-                    $message = sprintf(
-                        __( '%s can be uploaded when the order is in "Processing" status. Current status: %s', 'vss' ),
-                        $type_label,
-                        '<strong>' . wc_get_order_status_name( $order_status ) . '</strong>'
-                    );
-                } elseif ( $status === 'approved' ) {
-                    $message = sprintf( __( '%s has been approved by the customer.', 'vss' ), $type_label );
-                } elseif ( $status === 'pending' ) {
-                    $message = __( 'Waiting for customer review. You will be notified once the customer responds.', 'vss' );
-                } else {
-                    // Can upload if: processing/pending status AND (no status OR disapproved)
-                    $can_upload = true;
-                }
-
-                if ( ! $can_upload && $message ) : ?>
-                    <div class="vss-notice vss-notice-info">
-                        <p><?php echo wp_kses_post( $message ); ?></p>
-                    </div>
-                <?php endif; ?>
-
-                <?php if ( $can_upload ) : ?>
-                    <form method="post" enctype="multipart/form-data" class="vss-approval-form">
-                        <?php wp_nonce_field( 'vss_approval_submission' ); ?>
-                        <input type="hidden" name="vss_fe_action" value="send_<?php echo esc_attr( $type ); ?>_for_approval">
-                        <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-
-                        <div class="upload-section">
-                            <label for="approval_files_<?php echo esc_attr( $type ); ?>">
-                                <?php
-                                if ( $status === 'disapproved' ) {
-                                    printf( __( 'Upload Revised %s Files:', 'vss' ), $type_label );
-                                } else {
-                                    printf( __( 'Upload %s Files:', 'vss' ), $type_label );
-                                }
-                                ?>
-                                <span class="required">*</span>
-                            </label>
-
-                            <input type="file"
-                                   name="approval_files[]"
-                                   id="approval_files_<?php echo esc_attr( $type ); ?>"
-                                   multiple
-                                   accept="image/*,.pdf"
-                                   required>
-
-                            <p class="description">
-                                <?php esc_html_e( 'Select multiple files (images or PDFs) to upload. Accepted formats: JPG, PNG, GIF, PDF', 'vss' ); ?>
-                            </p>
-                        </div>
-
-                        <input type="submit"
-                               value="<?php printf( esc_attr__( 'Submit %s for Approval', 'vss' ), $type_label ); ?>"
-                               class="button button-primary">
-                    </form>
+                <?php if ( $can_edit ) : ?>
+                    <button type="button" class="button button-small edit-costs-btn">
+                        <?php esc_html_e( 'Edit Costs', 'vss' ); ?>
+                    </button>
                 <?php endif; ?>
             </div>
+        <?php endif; ?>
 
-            <style>
-            .vss-approval-section .approval-status {
-                background: #f9f9f9;
-                padding: 15px;
-                border-radius: 4px;
-                margin-bottom: 20px;
-            }
+        <?php
+        $form_style = $costs['total_cost'] > 0 && ! isset( $_GET['edit_costs'] ) ? 'style="display:none;"' : '';
+        ?>
 
-            .vss-approval-section .status-pending {
-                color: #f57c00;
-                background: #fff3e0;
-                padding: 4px 12px;
-                border-radius: 12px;
-                font-size: 0.875em;
-                font-weight: 500;
-            }
-
-            .vss-approval-section .status-approved {
-                color: #2e7d32;
-                background: #e8f5e9;
-                padding: 4px 12px;
-                border-radius: 12px;
-                font-size: 0.875em;
-                font-weight: 500;
-            }
-
-            .vss-approval-section .status-disapproved {
-                color: #c62828;
-                background: #ffebee;
-                padding: 4px 12px;
-                border-radius: 12px;
-                font-size: 0.875em;
-                font-weight: 500;
-            }
-
-            .vss-approval-section .approval-files {
-                list-style: none;
-                padding-left: 0;
-                margin: 10px 0;
-            }
-
-            .vss-approval-section .approval-files li {
-                margin: 5px 0;
-            }
-
-            .vss-approval-section .approval-files a {
-                text-decoration: none;
-                color: #2271b1;
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-            }
-
-            .vss-approval-section .approval-files a:hover {
-                text-decoration: underline;
-            }
-
-            .vss-approval-section .disapproval-reason {
-                background: #ffebee;
-                padding: 15px;
-                border-radius: 4px;
-                margin-top: 15px;
-                border-left: 4px solid #c62828;
-            }
-
-            .vss-approval-section .upload-section {
-                margin: 20px 0;
-            }
-
-            .vss-approval-section .upload-section label {
-                display: block;
-                margin-bottom: 10px;
-                font-weight: 600;
-                color: #333;
-            }
-
-            .vss-approval-section input[type="file"] {
-                display: block;
-                margin-bottom: 10px;
-                padding: 10px;
-                border: 2px dashed #ddd;
-                border-radius: 4px;
-                width: 100%;
-                background: #fafafa;
-                cursor: pointer;
-            }
-
-            .vss-approval-section input[type="file"]:hover {
-                border-color: #2271b1;
-                background: #f0f7ff;
-            }
-
-            .vss-approval-section .description {
-                color: #666;
-                font-size: 0.9em;
-                margin: 5px 0;
-            }
-
-            .no-approval-info {
-                color: #666;
-                font-style: italic;
-            }
-            </style>
-            <?php
-        }
-
-
-
-        /**
-         * Render shipping section with better visibility
-         * Replace the existing render_shipping_section method with this updated version
-         */
-        private static function render_shipping_section( $order ) {
-            $tracking_number = get_post_meta( $order->get_id(), '_vss_tracking_number', true );
-            $tracking_carrier = get_post_meta( $order->get_id(), '_vss_tracking_carrier', true );
-            $shipped_at = get_post_meta( $order->get_id(), '_vss_shipped_at', true );
-            ?>
-            <div class="vss-shipping-section">
-                <h4><?php esc_html_e( 'Shipping Information', 'vss' ); ?></h4>
-
-                <?php if ( $tracking_number ) : ?>
-                    <div class="tracking-info">
-                        <p><strong><?php esc_html_e( 'Tracking Number:', 'vss' ); ?></strong> <?php echo esc_html( $tracking_number ); ?></p>
-                        <?php if ( $tracking_carrier ) : ?>
-                            <p><strong><?php esc_html_e( 'Carrier:', 'vss' ); ?></strong> <?php echo esc_html( $tracking_carrier ); ?></p>
-                        <?php endif; ?>
-                        <?php if ( $shipped_at ) : ?>
-                            <p><strong><?php esc_html_e( 'Shipped Date:', 'vss' ); ?></strong> <?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $shipped_at ) ); ?></p>
-                        <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-
-                <?php
-                // Show form for processing orders OR if no tracking info exists yet
-                if ( $order->has_status( 'processing' ) || ! $tracking_number ) :
-                ?>
-                    <?php if ( ! $order->has_status( 'processing' ) && ! $tracking_number ) : ?>
-                        <div class="vss-notice vss-notice-info">
-                            <p><?php esc_html_e( 'Tracking information can be added when the order is in "Processing" status.', 'vss' ); ?></p>
-                            <p><?php printf( __( 'Current order status: %s', 'vss' ), '<strong>' . wc_get_order_status_name( $order->get_status() ) . '</strong>' ); ?></p>
-                        </div>
-                    <?php elseif ( $order->has_status( 'processing' ) ) : ?>
-                        <form method="post" class="vss-shipping-form">
-                            <?php wp_nonce_field( 'vss_save_tracking' ); ?>
-                            <input type="hidden" name="vss_fe_action" value="save_tracking">
-                            <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
-
-                            <div class="tracking-fields">
-                                <div class="field-group">
-                                    <label for="tracking_number"><?php esc_html_e( 'Tracking Number:', 'vss' ); ?> <span class="required">*</span></label>
-                                    <input type="text"
-                                           name="tracking_number"
-                                           id="tracking_number"
-                                           value="<?php echo esc_attr( $tracking_number ); ?>"
-                                           placeholder="<?php esc_attr_e( 'Enter tracking number', 'vss' ); ?>"
-                                           required>
-                                </div>
-
-                                <div class="field-group">
-                                    <label for="tracking_carrier"><?php esc_html_e( 'Carrier:', 'vss' ); ?></label>
-                                    <select name="tracking_carrier" id="tracking_carrier">
-                                        <option value=""><?php esc_html_e( 'Select Carrier', 'vss' ); ?></option>
-                                        <option value="ups" <?php selected( $tracking_carrier, 'ups' ); ?>>UPS</option>
-                                        <option value="fedex" <?php selected( $tracking_carrier, 'fedex' ); ?>>FedEx</option>
-                                        <option value="usps" <?php selected( $tracking_carrier, 'usps' ); ?>>USPS</option>
-                                        <option value="dhl" <?php selected( $tracking_carrier, 'dhl' ); ?>>DHL</option>
-                                        <option value="other" <?php selected( $tracking_carrier, 'other' ); ?>><?php esc_html_e( 'Other', 'vss' ); ?></option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <p class="vss-form-notice">
-                                <strong><?php esc_html_e( 'Note:', 'vss' ); ?></strong>
-                                <?php esc_html_e( 'Adding tracking information will mark this order as "Shipped".', 'vss' ); ?>
-                            </p>
-
-                            <input type="submit" value="<?php esc_attr_e( 'Save Tracking & Mark as Shipped', 'vss' ); ?>" class="button button-primary">
-                        </form>
-                    <?php endif; ?>
-                <?php else : ?>
-                    <?php if ( ! $tracking_number ) : ?>
-                        <p class="no-tracking-info"><?php esc_html_e( 'No tracking information available yet.', 'vss' ); ?></p>
-                    <?php endif; ?>
-                <?php endif; ?>
-            </div>
-
-            <style>
-            .vss-shipping-section .tracking-fields {
-                display: grid;
-                grid-template-columns: 2fr 1fr;
-                gap: 20px;
-                margin: 20px 0;
-            }
-
-            .vss-shipping-section .field-group label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: 600;
-                color: #333;
-            }
-
-            .vss-shipping-section .field-group input,
-            .vss-shipping-section .field-group select {
-                width: 100%;
-                padding: 8px 12px;
-                border: 2px solid #ddd;
-                border-radius: 4px;
-                font-size: 16px;
-            }
-
-            .vss-shipping-section .required {
-                color: #d32f2f;
-            }
-
-            .vss-notice {
-                padding: 15px;
-                border-radius: 4px;
-                margin: 15px 0;
-            }
-
-            .vss-notice-info {
-                background: #e3f2fd;
-                border: 1px solid #2196f3;
-                color: #1976d2;
-            }
-
-            .vss-form-notice {
-                background: #fff3cd;
-                padding: 10px 15px;
-                border-radius: 4px;
-                margin: 15px 0;
-                border: 1px solid #ffc107;
-            }
-
-            .no-tracking-info {
-                color: #666;
-                font-style: italic;
-            }
-
-            @media (max-width: 768px) {
-                .vss-shipping-section .tracking-fields {
-                    grid-template-columns: 1fr;
-                }
-            }
-            </style>
-            <?php
-        }
-
-
-
-        /**
-         * Render notes section
-         */
-        private static function render_notes_section( $order ) {
-            $notes = wc_get_order_notes( [ 'order_id' => $order->get_id() ] );
-            ?>
-            <div class="vss-notes-section">
-                <h4><?php esc_html_e( 'Order Notes', 'vss' ); ?></h4>
-
-                <?php if ( $notes ) : ?>
-                    <div class="order-notes">
-                        <?php foreach ( $notes as $note ) : ?>
-                            <div class="note-item">
-                                <div class="note-meta">
-                                    <strong><?php echo esc_html( $note->added_by ); ?></strong>
-                                    <span class="note-date"><?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $note->date_created ) ) ); ?></span>
-                                </div>
-                                <div class="note-content"><?php echo wp_kses_post( wpautop( $note->content ) ); ?></div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-
-                <form method="post" class="vss-add-note-form">
-                    <?php wp_nonce_field( 'vss_add_note' ); ?>
-                    <input type="hidden" name="vss_fe_action" value="add_note">
+        <?php if ( $can_edit ) : ?>
+            <div class="costs-form-wrapper" <?php echo $form_style; ?>>
+                <form method="post" class="vss-costs-form">
+                    <?php wp_nonce_field( 'vss_save_costs' ); ?>
+                    <input type="hidden" name="vss_fe_action" value="save_costs">
                     <input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
 
-                    <label for="vendor_note"><?php esc_html_e( 'Add Note:', 'vss' ); ?></label>
-                    <textarea name="vendor_note"
-                              id="vendor_note"
-                              rows="4"
-                              placeholder="<?php esc_attr_e( 'Add a note about this order...', 'vss' ); ?>"></textarea>
+                    <p class="form-description">
+                        <?php esc_html_e( 'Enter your costs for this order. This information helps track profitability.', 'vss' ); ?>
+                    </p>
 
-                    <input type="submit" value="<?php esc_attr_e( 'Add Note', 'vss' ); ?>" class="button">
+                    <div class="costs-grid">
+                        <div class="cost-item">
+                            <label for="material_cost">
+                                <?php esc_html_e( 'Material Cost', 'vss' ); ?>
+                                <span class="dashicons dashicons-info" title="<?php esc_attr_e( 'Cost of raw materials, supplies, etc.', 'vss' ); ?>"></span>
+                            </label>
+                            <div class="input-group">
+                                <span class="currency-symbol"><?php echo get_woocommerce_currency_symbol(); ?></span>
+                                <input type="number"
+                                       name="material_cost"
+                                       id="material_cost"
+                                       value="<?php echo esc_attr( $costs['material_cost'] ); ?>"
+                                       step="0.01"
+                                       min="0"
+                                       class="vss-cost-input">
+                            </div>
+                        </div>
+
+                        <div class="cost-item">
+                            <label for="labor_cost">
+                                <?php esc_html_e( 'Labor Cost', 'vss' ); ?>
+                                <span class="dashicons dashicons-info" title="<?php esc_attr_e( 'Cost of time and labor to produce', 'vss' ); ?>"></span>
+                            </label>
+                            <div class="input-group">
+                                <span class="currency-symbol"><?php echo get_woocommerce_currency_symbol(); ?></span>
+                                <input type="number"
+                                       name="labor_cost"
+                                       id="labor_cost"
+                                       value="<?php echo esc_attr( $costs['labor_cost'] ); ?>"
+                                       step="0.01"
+                                       min="0"
+                                       class="vss-cost-input">
+                            </div>
+                        </div>
+
+                        <div class="cost-item">
+                            <label for="shipping_cost">
+                                <?php esc_html_e( 'Shipping Cost', 'vss' ); ?>
+                                <span class="dashicons dashicons-info" title="<?php esc_attr_e( 'Your cost to ship to customer', 'vss' ); ?>"></span>
+                            </label>
+                            <div class="input-group">
+                                <span class="currency-symbol"><?php echo get_woocommerce_currency_symbol(); ?></span>
+                                <input type="number"
+                                       name="shipping_cost"
+                                       id="shipping_cost"
+                                       value="<?php echo esc_attr( $costs['shipping_cost'] ); ?>"
+                                       step="0.01"
+                                       min="0"
+                                       class="vss-cost-input">
+                            </div>
+                        </div>
+
+                        <div class="cost-item">
+                            <label for="other_cost">
+                                <?php esc_html_e( 'Other Costs', 'vss' ); ?>
+                                <span class="dashicons dashicons-info" title="<?php esc_attr_e( 'Any additional costs', 'vss' ); ?>"></span>
+                            </label>
+                            <div class="input-group">
+                                <span class="currency-symbol"><?php echo get_woocommerce_currency_symbol(); ?></span>
+                                <input type="number"
+                                       name="other_cost"
+                                       id="other_cost"
+                                       value="<?php echo esc_attr( $costs['other_cost'] ); ?>"
+                                       step="0.01"
+                                       min="0"
+                                       class="vss-cost-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cost-notes">
+                        <label for="cost_notes"><?php esc_html_e( 'Cost Notes (optional):', 'vss' ); ?></label>
+                        <textarea name="cost_notes"
+                                  id="cost_notes"
+                                  rows="2"
+                                  placeholder="<?php esc_attr_e( 'Any notes about these costs...', 'vss' ); ?>"><?php echo esc_textarea( get_post_meta( $order->get_id(), '_vss_cost_notes', true ) ); ?></textarea>
+                    </div>
+
+                    <div class="cost-total-display">
+                        <span class="total-label"><?php esc_html_e( 'Total Cost:', 'vss' ); ?></span>
+                        <span class="total-amount" id="vss-total-cost-display"><?php echo wc_price( $costs['total_cost'] ); ?></span>
+                    </div>
+
+                    <div class="form-actions">
+                        <input type="submit" value="<?php esc_attr_e( 'Save Costs', 'vss' ); ?>" class="button button-primary">
+                        <?php if ( $costs['total_cost'] > 0 ) : ?>
+                            <button type="button" class="button cancel-costs-btn"><?php esc_html_e( 'Cancel', 'vss' ); ?></button>
+                        <?php endif; ?>
+                    </div>
                 </form>
             </div>
-            <?php
+        <?php else : ?>
+            <?php if ( $costs['total_cost'] == 0 ) : ?>
+                <p class="no-costs-info"><?php esc_html_e( 'No cost information has been entered yet.', 'vss' ); ?></p>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+
+    <style>
+    /* Enhanced Costs Section Styles */
+    .vss-costs-section {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+    }
+
+    .costs-summary {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .cost-breakdown {
+        margin-bottom: 15px;
+    }
+
+    .cost-line {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .cost-line:last-child {
+        border-bottom: none;
+    }
+
+    .cost-line.cost-total {
+        margin-top: 10px;
+        padding-top: 15px;
+        border-top: 2px solid #dee2e6;
+        font-size: 1.2em;
+        font-weight: bold;
+    }
+
+    .cost-label {
+        color: #495057;
+    }
+
+    .cost-value {
+        font-weight: 500;
+        color: #212529;
+    }
+
+    .edit-costs-btn {
+        margin-top: 15px;
+    }
+
+    /* Costs Form */
+    .costs-form-wrapper {
+        transition: all 0.3s ease;
+    }
+
+    .form-description {
+        background: #e3f2fd;
+        padding: 12px 15px;
+        border-radius: 6px;
+        color: #1976d2;
+        margin-bottom: 20px;
+        font-size: 0.95em;
+    }
+
+    .costs-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .cost-item label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .cost-item label .dashicons {
+        font-size: 16px;
+        color: #666;
+        cursor: help;
+    }
+
+    .input-group {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .currency-symbol {
+        position: absolute;
+        left: 12px;
+        color: #666;
+        font-weight: 500;
+        pointer-events: none;
+    }
+
+    .vss-cost-input {
+        width: 100%;
+        padding: 10px 12px 10px 28px;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+
+    .vss-cost-input:focus {
+        outline: none;
+        border-color: #2271b1;
+        box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+    }
+
+    .vss-cost-input.error {
+        border-color: #dc3545;
+    }
+
+    .cost-notes {
+        margin: 20px 0;
+    }
+
+    .cost-notes label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .cost-notes textarea {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        resize: vertical;
+    }
+
+    .cost-total-display {
+        background: #f0f0f0;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 1.3em;
+    }
+
+    .total-label {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .total-amount {
+        font-weight: bold;
+        color: #2271b1;
+    }
+
+    .no-costs-info {
+        color: #666;
+        font-style: italic;
+        text-align: center;
+        padding: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .costs-grid {
+            grid-template-columns: 1fr;
         }
+    }
+    </style>
 
+    <script>
+    jQuery(document).ready(function($) {
+        // Toggle edit form
+        $('.edit-costs-btn').on('click', function() {
+            $('.costs-form-wrapper').slideDown();
+            $('.costs-summary').slideUp();
+        });
 
+        $('.cancel-costs-btn').on('click', function() {
+            $('.costs-form-wrapper').slideUp();
+            $('.costs-summary').slideDown();
+        });
 
-        /**
-         * Also update the render_files_section method to use secure URLs
-         */
-        private static function render_files_section( $order ) {
-            ?>
-            <div class="vss-files-section">
-                <h4><?php esc_html_e( 'Order Files', 'vss' ); ?></h4>
+        // Real-time cost calculation
+        $('.vss-cost-input').on('input', function() {
+            var total = 0;
+            var hasError = false;
 
-                <div class="files-grid">
-                    <div class="file-category">
-                        <h5><?php esc_html_e( 'Design Files', 'vss' ); ?></h5>
-                        <?php
-                        $has_design_files = false;
+            $('.vss-cost-input').each(function() {
+                var value = parseFloat($(this).val()) || 0;
+                
+                if (value < 0) {
+                    $(this).addClass('error');
+                    hasError = true;
+                } else {
+                    $(this).removeClass('error');
+                    total += value;
+                }
+            });
 
-                        // Check for Zakeke files
-                        foreach ( $order->get_items() as $item_id => $item ) : ?>
-                            <?php
-                            $zip_url = $item->get_meta( '_vss_zakeke_printing_files_zip_url', true );
-                            $zakeke_data = $item->get_meta( 'zakeke_data', true );
-                            $primary_zakeke_design_id = null;
+            // Update total display
+            var currencySymbol = '<?php echo get_woocommerce_currency_symbol(); ?>';
+            $('#vss-total-cost-display').html(currencySymbol + total.toFixed(2));
 
-                            // Parse Zakeke data to get design ID
-                            if ( $zakeke_data ) {
-                                $parsed_data = is_string( $zakeke_data ) ? json_decode( $zakeke_data, true ) : (array) $zakeke_data;
-                                if ( is_array( $parsed_data ) && isset( $parsed_data['design'] ) ) {
-                                    $primary_zakeke_design_id = $parsed_data['design'];
-                                }
-                            }
+            // Disable submit if there are errors
+            $('.vss-costs-form input[type="submit"]').prop('disabled', hasError);
+        });
 
-                            if ( $zip_url ) :
-                                $has_design_files = true;
-                            ?>
-                                <p>
-                                    <strong><?php echo esc_html( $item->get_name() ); ?>:</strong><br>
-                                    <a href="<?php echo esc_url( $zip_url ); ?>" target="_blank">
-                                        <?php esc_html_e( 'Download Zakeke Design Files', 'vss' ); ?>
-                                    </a>
-                                </p>
-                            <?php elseif ( $primary_zakeke_design_id ) :
-                                $has_design_files = true;
-                            ?>
-                                <p>
-                                    <strong><?php echo esc_html( $item->get_name() ); ?>:</strong><br>
-                                    <button type="button" class="button button-small vss-manual-fetch-zakeke-zip"
-                                            data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
-                                            data-item-id="<?php echo esc_attr( $item_id ); ?>"
-                                            data-zakeke-design-id="<?php echo esc_attr( $primary_zakeke_design_id ); ?>">
-                                        <?php esc_html_e( 'Fetch Zakeke Files', 'vss' ); ?>
-                                    </button>
-                                </p>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-
-                        <?php
-                        // Check for admin uploaded ZIP with secure URL
-                        $admin_zip_id = get_post_meta( $order->get_id(), '_vss_attached_zip_id', true );
-                        if ( $admin_zip_id ) :
-                            $has_design_files = true;
-                            $secure_download_url = self::get_secure_download_url( $admin_zip_id, $order->get_id() );
-                        ?>
-                            <p>
-                                <strong><?php esc_html_e( 'Admin Uploaded ZIP:', 'vss' ); ?></strong><br>
-                                <a href="<?php echo esc_url( $secure_download_url ); ?>"
-                                   class="vss-admin-zip-download"
-                                   data-order-id="<?php echo esc_attr( $order->get_id() ); ?>"
-                                   data-file-id="<?php echo esc_attr( $admin_zip_id ); ?>">
-                                    <?php esc_html_e( 'Download ZIP File', 'vss' ); ?>
-                                </a>
-                            </p>
-                        <?php endif; ?>
-
-                        <?php if ( ! $has_design_files ) : ?>
-                            <p class="no-files"><?php esc_html_e( 'No design files available.', 'vss' ); ?></p>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="file-category">
-                        <h5><?php esc_html_e( 'Mockup Files', 'vss' ); ?></h5>
-                        <?php
-                        $mockup_files = get_post_meta( $order->get_id(), '_vss_mockup_files', true );
-                        if ( $mockup_files ) :
-                            foreach ( $mockup_files as $file_url ) :
-                        ?>
-                            <p><a href="<?php echo esc_url( $file_url ); ?>" target="_blank"><?php echo esc_html( basename( $file_url ) ); ?></a></p>
-                        <?php
-                            endforeach;
-                        else :
-                        ?>
-                            <p class="no-files"><?php esc_html_e( 'No mockup files uploaded yet.', 'vss' ); ?></p>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="file-category">
-                        <h5><?php esc_html_e( 'Production Files', 'vss' ); ?></h5>
-                        <?php
-                        $production_files = get_post_meta( $order->get_id(), '_vss_production_file_files', true );
-                        if ( $production_files ) :
-                            foreach ( $production_files as $file_url ) :
-                        ?>
-                            <p><a href="<?php echo esc_url( $file_url ); ?>" target="_blank"><?php echo esc_html( basename( $file_url ) ); ?></a></p>
-                        <?php
-                            endforeach;
-                        else :
-                        ?>
-                            <p class="no-files"><?php esc_html_e( 'No production files uploaded yet.', 'vss' ); ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <?php
+        // Initialize calculation on page load
+        if ($('.vss-cost-input').length > 0) {
+            $('.vss-cost-input').first().trigger('input');
         }
-
-
+    });
+    </script>
+    <?php
 }
