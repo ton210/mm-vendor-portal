@@ -43,6 +43,7 @@ class VSS_Setup {
         add_shortcode( 'vss_vendor_portal', [ 'VSS_Vendor', 'render_vendor_portal_shortcode' ] );
         add_shortcode( 'vss_approval_handler', [ self::class, 'render_approval_handler_shortcode' ] );
         add_shortcode( 'vss_vendor_list', [ self::class, 'render_vendor_list_shortcode' ] );
+        add_shortcode( 'vss_vendor_application', [ 'VSS_Vendor', 'render_vendor_application_shortcode' ] );
         
         // Cron events
         add_action( 'vss_daily_analytics', [ self::class, 'run_daily_analytics' ] );
