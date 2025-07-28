@@ -1,9 +1,9 @@
 <?php
 /**
  * VSS Vendor Shortcodes Module
- * 
+ *
  * Shortcode implementations
- * 
+ *
  * @package VendorOrderManager
  * @subpackage Modules
  * @since 7.0.1
@@ -243,6 +243,47 @@ trait VSS_Vendor_Shortcodes {
                 </div>
             </nav>
             <?php
+        }
+
+        /**
+         * Render vendor application form
+         */
+        public static function render_vendor_application_shortcode() {
+            ob_start();
+            ?>
+            <div class="vss-vendor-application-form">
+                <h2><?php esc_html_e( 'Become a Vendor', 'vss' ); ?></h2>
+                <form method="post">
+                    <?php wp_nonce_field( 'vss_vendor_application' ); ?>
+                    <input type="hidden" name="vss_fe_action" value="vendor_application">
+
+                    <p class="form-row form-row-first">
+                        <label for="vss_first_name"><?php esc_html_e( 'First Name', 'vss' ); ?> <span class="required">*</span></label>
+                        <input type="text" class="input-text" name="vss_first_name" id="vss_first_name" required>
+                    </p>
+                    <p class="form-row form-row-last">
+                        <label for="vss_last_name"><?php esc_html_e( 'Last Name', 'vss' ); ?> <span class="required">*</span></label>
+                        <input type="text" class="input-text" name="vss_last_name" id="vss_last_name" required>
+                    </p>
+                    <p class="form-row form-row-wide">
+                        <label for="vss_email"><?php esc_html_e( 'Email Address', 'vss' ); ?> <span class="required">*</span></label>
+                        <input type="email" class="input-text" name="vss_email" id="vss_email" required>
+                    </p>
+                    <p class="form-row form-row-wide">
+                        <label for="vss_company_name"><?php esc_html_e( 'Company Name', 'vss' ); ?></label>
+                        <input type="text" class="input-text" name="vss_company_name" id="vss_company_name">
+                    </p>
+                    <p class="form-row form-row-wide">
+                        <label for="vss_password"><?php esc_html_e( 'Password', 'vss' ); ?> <span class="required">*</span></label>
+                        <input type="password" class="input-text" name="vss_password" id="vss_password" required>
+                    </p>
+                    <p class="form-row">
+                        <input type="submit" class="button" name="vss_apply_vendor" value="<?php esc_attr_e( 'Apply', 'vss' ); ?>">
+                    </p>
+                </form>
+            </div>
+            <?php
+            return ob_get_clean();
         }
 
 
