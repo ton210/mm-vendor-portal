@@ -387,63 +387,535 @@ trait VSS_Vendor_Forms {
     }
 
     /**
-     * Handle vendor application
+     * Handle vendor application with enhanced fields
      */
     private static function handle_vendor_application() {
         if ( ! isset( $_POST['vss_apply_vendor'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], 'vss_vendor_application' ) ) {
             return;
         }
 
-        $first_name = sanitize_text_field( $_POST['vss_first_name'] );
-        $last_name = sanitize_text_field( $_POST['vss_last_name'] );
-        $email = sanitize_email( $_POST['vss_email'] );
+        // Basic Information
         $company_name = sanitize_text_field( $_POST['vss_company_name'] );
+        $contact_name = sanitize_text_field( $_POST['vss_contact_name'] );
+        $email = sanitize_email( $_POST['vss_email'] );
+        $phone = sanitize_text_field( $_POST['vss_phone'] );
+        $wechat = sanitize_text_field( $_POST['vss_wechat'] );
         $password = $_POST['vss_password'];
 
-        if ( empty( $first_name ) || empty( $last_name ) || empty( $email ) || empty( $password ) ) {
-            // Handle error
-            return;
+        // Company Details
+        $province = sanitize_text_field( $_POST['vss_province'] );
+        $city = sanitize_text_field( $_POST['vss_city'] );
+        $company_website = esc_url_raw( $_POST['vss_company_website'] );
+        $alibaba_page = esc_url_raw( $_POST['vss_alibaba_page'] );
+
+        // Business Information
+        $business_type = sanitize_text_field( $_POST['vss_business_type'] );
+        $main_products = sanitize_textarea_field( $_POST['vss_main_products'] );
+        $production_capacity = sanitize_text_field( $_POST['vss_production_capacity'] );
+        $years_in_business = intval( $_POST['vss_years_in_business'] );
+
+        // Validation
+        $errors = [];
+
+        if ( empty( $company_name ) ) {
+            $errors[] = '请填写公司名称';
+        }
+
+        if ( empty( $contact_name ) ) {
+            $errors[] = '请填写联系人姓名';
+        }
+
+        if ( empty( $email ) || ! is_email( $email ) ) {
+            $errors[] = '请填写有效的电子邮箱';
+        }
+
+        if ( empty( $password ) || strlen( $password ) < 6 ) {
+            $errors[] = '密码至少需要6个字符';
         }
 
         if ( email_exists( $email ) ) {
-            // Handle error
-            return;
+            $errors[] = '该邮箱已被注册';
         }
 
+        if ( ! empty( $errors ) ) {
+            // Store errors in session or transient for display
+            set_transient( 'vss_vendor_app_errors_' . session_id(), $errors, 60 );
+            wp_safe_redirect( wp_get_referer() );
+            exit;
+        }
+
+        // Create user account
         $user_id = wp_create_user( $email, $password, $email );
 
         if ( is_wp_error( $user_id ) ) {
-            // Handle error
-            return;
+            set_transient( 'vss_vendor_app_errors_' . session_id(), ['创建账户失败，请稍后再试'], 60 );
+            wp_safe_redirect( wp_get_referer() );
+            exit;
         }
 
+        // Update user information
         wp_update_user( [
             'ID' => $user_id,
-            'first_name' => $first_name,
-            'last_name' => $last_name,
-            'display_name' => $first_name . ' ' . $last_name,
+            'display_name' => $company_name,
         ] );
 
         $user = new WP_User( $user_id );
         $user->set_role( 'vendor-mm' );
 
-        if ( ! empty( $company_name ) ) {
-            update_user_meta( $user_id, 'vss_company_name', $company_name );
+        // Save vendor metadata
+        update_user_meta( $user_id, 'vss_company_name', $company_name );
+        update_user_meta( $user_id, 'vss_contact_name', $contact_name );
+        update_user_meta( $user_id, 'vss_phone', $phone );
+        update_user_meta( $user_id, 'vss_wechat', $wechat );
+        update_user_meta( $user_id, 'vss_province', $province );
+        update_user_meta( $user_id, 'vss_city', $city );
+        update_user_meta( $user_id, 'vss_company_website', $company_website );
+        update_user_meta( $user_id, 'vss_alibaba_page', $alibaba_page );
+        update_user_meta( $user_id, 'vss_business_type', $business_type );
+        update_user_meta( $user_id, 'vss_main_products', $main_products );
+        update_user_meta( $user_id, 'vss_production_capacity', $production_capacity );
+        update_user_meta( $user_id, 'vss_years_in_business', $years_in_business );
+        update_user_meta( $user_id, 'vss_application_date', current_time( 'mysql' ) );
+        update_user_meta( $user_id, 'vss_vendor_status', 'pending' ); // Pending approval
+
+        // Send notification email to admin
+        $admin_email = get_option( 'admin_email' );
+        $subject = '新供应商申请 - ' . $company_name;
+
+        $message = "收到新的供应商申请：\n\n";
+        $message .= "公司信息\n";
+        $message .= "=================\n";
+        $message .= "公司名称: {$company_name}\n";
+        $message .= "联系人: {$contact_name}\n";
+        $message .= "邮箱: {$email}\n";
+        $message .= "电话: {$phone}\n";
+        $message .= "微信: {$wechat}\n\n";
+
+        $message .= "地址信息\n";
+        $message .= "=================\n";
+        $message .= "省份: {$province}\n";
+        $message .= "城市: {$city}\n\n";
+
+        $message .= "业务信息\n";
+        $message .= "=================\n";
+        $message .= "业务类型: {$business_type}\n";
+        $message .= "主营产品: {$main_products}\n";
+        $message .= "生产能力: {$production_capacity}\n";
+        $message .= "经营年限: {$years_in_business} 年\n\n";
+
+        if ( $company_website ) {
+            $message .= "公司网站: {$company_website}\n";
+        }
+        if ( $alibaba_page ) {
+            $message .= "阿里巴巴店铺: {$alibaba_page}\n";
         }
 
-        // Send notification to admin
-        wp_mail(
-            get_option( 'admin_email' ),
-            'New Vendor Application',
-            "A new vendor has applied:\n\nName: $first_name $last_name\nEmail: $email\nCompany: $company_name"
-        );
+        $message .= "\n查看申请: " . admin_url( 'user-edit.php?user_id=' . $user_id );
 
-        // Log in the new vendor
-        wp_set_current_user( $user_id );
-        wp_set_auth_cookie( $user_id );
+        wp_mail( $admin_email, $subject, $message );
 
-        // Redirect to the vendor portal
-        wp_safe_redirect( home_url( '/vendor-portal/' ) );
+        // Send welcome email to vendor
+        $vendor_subject = '欢迎申请成为供应商 - ' . get_bloginfo( 'name' );
+        $vendor_message = "尊敬的 {$contact_name}，\n\n";
+        $vendor_message .= "感谢您申请成为我们的供应商。\n\n";
+        $vendor_message .= "我们已收到您的申请，正在进行审核。审核通过后，我们会通过邮件通知您。\n\n";
+        $vendor_message .= "申请信息：\n";
+        $vendor_message .= "公司名称: {$company_name}\n";
+        $vendor_message .= "联系邮箱: {$email}\n\n";
+        $vendor_message .= "如有任何问题，请随时与我们联系。\n\n";
+        $vendor_message .= "此致\n";
+        $vendor_message .= get_bloginfo( 'name' );
+
+        wp_mail( $email, $vendor_subject, $vendor_message );
+
+        // Log in the new vendor (optional - you might want to wait for approval)
+        // wp_set_current_user( $user_id );
+        // wp_set_auth_cookie( $user_id );
+
+        // Redirect with success message
+        set_transient( 'vss_vendor_app_success_' . session_id(), true, 60 );
+        wp_safe_redirect( add_query_arg( 'application', 'submitted', home_url( '/vendor-application/' ) ) );
         exit;
+    }
+
+    /**
+     * Display vendor application form
+     */
+    public static function render_vendor_application_form() {
+        // Check if user is already logged in
+        if ( is_user_logged_in() ) {
+            echo '<div class="vss-notice">您已经登录，无需重新申请。</div>';
+            return;
+        }
+
+        // Check for success message
+        if ( isset( $_GET['application'] ) && $_GET['application'] === 'submitted' ) {
+            ?>
+            <div class="vss-success-message">
+                <h2>申请已提交成功！</h2>
+                <p>感谢您申请成为我们的供应商。我们会尽快审核您的申请并通过邮件通知您。</p>
+                <p>审核时间通常为1-3个工作日。</p>
+            </div>
+            <?php
+            return;
+        }
+
+        // Check for errors
+        $errors = get_transient( 'vss_vendor_app_errors_' . session_id() );
+        if ( $errors ) {
+            delete_transient( 'vss_vendor_app_errors_' . session_id() );
+        }
+        ?>
+
+        <div class="vss-vendor-application-form">
+            <h2>供应商申请表</h2>
+            <p class="form-description">请填写以下信息申请成为我们的合作供应商</p>
+
+            <?php if ( ! empty( $errors ) ) : ?>
+                <div class="vss-errors">
+                    <?php foreach ( $errors as $error ) : ?>
+                        <p class="error"><?php echo esc_html( $error ); ?></p>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <form method="post" action="" class="vss-vendor-form">
+                <?php wp_nonce_field( 'vss_vendor_application' ); ?>
+                <input type="hidden" name="vss_fe_action" value="vendor_application">
+
+                <!-- 公司基本信息 -->
+                <fieldset class="form-section">
+                    <legend>公司基本信息</legend>
+
+                    <div class="form-group">
+                        <label for="vss_company_name">公司名称 <span class="required">*</span></label>
+                        <input type="text" id="vss_company_name" name="vss_company_name" required
+                               placeholder="请输入公司全称">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="vss_province">省份 <span class="required">*</span></label>
+                            <select id="vss_province" name="vss_province" required>
+                                <option value="">请选择省份</option>
+                                <option value="北京">北京</option>
+                                <option value="上海">上海</option>
+                                <option value="天津">天津</option>
+                                <option value="重庆">重庆</option>
+                                <option value="广东">广东</option>
+                                <option value="浙江">浙江</option>
+                                <option value="江苏">江苏</option>
+                                <option value="山东">山东</option>
+                                <option value="河北">河北</option>
+                                <option value="河南">河南</option>
+                                <option value="湖北">湖北</option>
+                                <option value="湖南">湖南</option>
+                                <option value="福建">福建</option>
+                                <option value="安徽">安徽</option>
+                                <option value="四川">四川</option>
+                                <option value="陕西">陕西</option>
+                                <option value="辽宁">辽宁</option>
+                                <option value="吉林">吉林</option>
+                                <option value="黑龙江">黑龙江</option>
+                                <option value="江西">江西</option>
+                                <option value="山西">山西</option>
+                                <option value="云南">云南</option>
+                                <option value="贵州">贵州</option>
+                                <option value="广西">广西</option>
+                                <option value="海南">海南</option>
+                                <option value="甘肃">甘肃</option>
+                                <option value="青海">青海</option>
+                                <option value="内蒙古">内蒙古</option>
+                                <option value="新疆">新疆</option>
+                                <option value="西藏">西藏</option>
+                                <option value="宁夏">宁夏</option>
+                                <option value="台湾">台湾</option>
+                                <option value="香港">香港</option>
+                                <option value="澳门">澳门</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group half">
+                            <label for="vss_city">城市 <span class="required">*</span></label>
+                            <input type="text" id="vss_city" name="vss_city" required
+                                   placeholder="例如：深圳">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="vss_company_website">公司网站</label>
+                            <input type="url" id="vss_company_website" name="vss_company_website"
+                                   placeholder="https://www.example.com">
+                        </div>
+
+                        <div class="form-group half">
+                            <label for="vss_alibaba_page">阿里巴巴店铺</label>
+                            <input type="url" id="vss_alibaba_page" name="vss_alibaba_page"
+                                   placeholder="https://shop.1688.com/...">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- 联系人信息 -->
+                <fieldset class="form-section">
+                    <legend>联系人信息</legend>
+
+                    <div class="form-group">
+                        <label for="vss_contact_name">联系人姓名 <span class="required">*</span></label>
+                        <input type="text" id="vss_contact_name" name="vss_contact_name" required
+                               placeholder="请输入您的姓名">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="vss_email">电子邮箱 <span class="required">*</span></label>
+                            <input type="email" id="vss_email" name="vss_email" required
+                                   placeholder="example@company.com">
+                            <small>此邮箱将作为登录账号</small>
+                        </div>
+
+                        <div class="form-group half">
+                            <label for="vss_password">设置密码 <span class="required">*</span></label>
+                            <input type="password" id="vss_password" name="vss_password" required
+                                   minlength="6" placeholder="至少6个字符">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="vss_phone">联系电话 <span class="required">*</span></label>
+                            <input type="tel" id="vss_phone" name="vss_phone" required
+                                   placeholder="13800138000">
+                        </div>
+
+                        <div class="form-group half">
+                            <label for="vss_wechat">微信号</label>
+                            <input type="text" id="vss_wechat" name="vss_wechat"
+                                   placeholder="您的微信号">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- 业务信息 -->
+                <fieldset class="form-section">
+                    <legend>业务信息</legend>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="vss_business_type">业务类型 <span class="required">*</span></label>
+                            <select id="vss_business_type" name="vss_business_type" required>
+                                <option value="">请选择</option>
+                                <option value="制造商">制造商</option>
+                                <option value="贸易商">贸易商</option>
+                                <option value="制造商兼贸易商">制造商兼贸易商</option>
+                                <option value="服务商">服务商</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group half">
+                            <label for="vss_years_in_business">经营年限</label>
+                            <select id="vss_years_in_business" name="vss_years_in_business">
+                                <option value="0">少于1年</option>
+                                <option value="1">1-2年</option>
+                                <option value="3">3-5年</option>
+                                <option value="6">6-10年</option>
+                                <option value="11">10年以上</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vss_main_products">主营产品 <span class="required">*</span></label>
+                        <textarea id="vss_main_products" name="vss_main_products" rows="3" required
+                                  placeholder="请描述您的主要产品类别，例如：服装定制、印刷品、包装材料等"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vss_production_capacity">生产能力</label>
+                        <input type="text" id="vss_production_capacity" name="vss_production_capacity"
+                               placeholder="例如：日产量10000件">
+                    </div>
+                </fieldset>
+
+                <div class="form-submit">
+                    <button type="submit" name="vss_apply_vendor" class="submit-button">
+                        提交申请
+                    </button>
+                    <p class="terms-notice">
+                        提交申请即表示您同意我们的<a href="/terms" target="_blank">服务条款</a>
+                    </p>
+                </div>
+            </form>
+        </div>
+
+        <style>
+        .vss-vendor-application-form {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .vss-vendor-application-form h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .form-description {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .vss-errors {
+            background: #fee;
+            border: 1px solid #fcc;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .vss-errors .error {
+            color: #c00;
+            margin: 5px 0;
+        }
+
+        .vss-success-message {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            padding: 30px;
+            text-align: center;
+            border-radius: 4px;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+
+        .vss-success-message h2 {
+            color: #2e7d32;
+            margin-bottom: 15px;
+        }
+
+        .form-section {
+            border: 1px solid #e0e0e0;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .form-section legend {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            padding: 0 10px;
+            background: #fafafa;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group .required {
+            color: #e74c3c;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #999;
+            font-size: 13px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group.half {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .form-submit {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .submit-button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 40px;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .submit-button:hover {
+            background: #45a049;
+        }
+
+        .terms-notice {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .terms-notice a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+
+        .terms-notice a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+            }
+
+            .form-group.half {
+                width: 100%;
+            }
+        }
+        </style>
+        <?php
     }
 }
