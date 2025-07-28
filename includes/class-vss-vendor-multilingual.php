@@ -28,6 +28,10 @@ class VSS_Vendor_Multilingual {
         // Add language detection and switching
         add_action( 'init', [ self::class, 'set_vendor_language' ], 1 );
 
+        // Add floating language switcher to vendor pages
+        add_action( 'wp_footer', [ self::class, 'render_floating_language_switcher' ] );
+        add_action( 'admin_footer', [ self::class, 'render_floating_language_switcher' ] );
+
         // Add language switcher to vendor pages
         add_action( 'vss_vendor_navigation_end', [ self::class, 'render_language_switcher' ] );
         add_action( 'admin_bar_menu', [ self::class, 'add_admin_bar_language_switcher' ], 999 );
@@ -37,6 +41,7 @@ class VSS_Vendor_Multilingual {
 
         // AJAX handler for language switching
         add_action( 'wp_ajax_vss_switch_language', [ self::class, 'ajax_switch_language' ] );
+        add_action( 'wp_ajax_nopriv_vss_switch_language', [ self::class, 'ajax_switch_language' ] );
 
         // Add translation filters
         add_filter( 'gettext', [ self::class, 'filter_vendor_translations' ], 10, 3 );
@@ -105,9 +110,21 @@ class VSS_Vendor_Multilingual {
             return true;
         }
 
-        // Admin vendor pages
-        if ( is_admin() && self::is_user_vendor( get_current_user_id() ) ) {
-            return true;
+        // Admin vendor pages - more comprehensive check
+        if ( is_admin() ) {
+            $user_id = get_current_user_id();
+            if ( $user_id && self::is_user_vendor( $user_id ) ) {
+                return true;
+            }
+        }
+
+        // Check if on vendor-specific pages
+        global $pagenow;
+        if ( in_array( $pagenow, ['index.php', 'admin.php', 'edit.php', 'post.php', 'post-new.php'] ) ) {
+            $user_id = get_current_user_id();
+            if ( $user_id && self::is_user_vendor( $user_id ) ) {
+                return true;
+            }
         }
 
         return false;
@@ -151,6 +168,199 @@ class VSS_Vendor_Multilingual {
         }
 
         return 'en_US';
+    }
+
+    /**
+     * Render floating language switcher
+     */
+    public static function render_floating_language_switcher() {
+        if ( ! self::is_vendor_page() || ! self::is_user_vendor( get_current_user_id() ) ) {
+            return;
+        }
+
+        $current_language = self::get_current_language();
+        $is_chinese = $current_language === 'zh_CN';
+        ?>
+        <div id="vss-floating-language-switcher" class="vss-floating-lang-switcher">
+            <div class="vss-lang-current" onclick="toggleLanguageMenu()">
+                <span class="vss-lang-icon">🌐</span>
+                <span class="vss-lang-text"><?php echo $is_chinese ? '中文' : 'EN'; ?></span>
+                <span class="vss-lang-arrow">▼</span>
+            </div>
+            <div class="vss-lang-menu" id="vss-lang-menu">
+                <a href="#" class="vss-lang-option <?php echo !$is_chinese ? 'active' : ''; ?>" onclick="vssSetLanguage('en'); return false;">
+                    <span class="vss-lang-flag">🇺🇸</span> English
+                </a>
+                <a href="#" class="vss-lang-option <?php echo $is_chinese ? 'active' : ''; ?>" onclick="vssSetLanguage('zh_CN'); return false;">
+                    <span class="vss-lang-flag">🇨🇳</span> 简体中文
+                </a>
+            </div>
+        </div>
+
+        <style>
+            .vss-floating-lang-switcher {
+                position: fixed;
+                bottom: 30px;
+                right: 30px;
+                z-index: 999999;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+
+            .vss-lang-current {
+                background: #2271b1;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 30px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                transition: all 0.3s ease;
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .vss-lang-current:hover {
+                background: #135e96;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+                transform: translateY(-2px);
+            }
+
+            .vss-lang-icon {
+                font-size: 18px;
+            }
+
+            .vss-lang-arrow {
+                font-size: 10px;
+                transition: transform 0.3s ease;
+            }
+
+            .vss-lang-menu {
+                position: absolute;
+                bottom: 60px;
+                right: 0;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+                overflow: hidden;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateY(10px);
+                transition: all 0.3s ease;
+                min-width: 180px;
+            }
+
+            .vss-lang-menu.active {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+            }
+
+            .vss-lang-menu.active ~ .vss-lang-current .vss-lang-arrow {
+                transform: rotate(180deg);
+            }
+
+            .vss-lang-option {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 14px 20px;
+                color: #333;
+                text-decoration: none;
+                transition: all 0.2s ease;
+                font-size: 14px;
+                border-bottom: 1px solid #f0f0f0;
+            }
+
+            .vss-lang-option:last-child {
+                border-bottom: none;
+            }
+
+            .vss-lang-option:hover {
+                background: #f5f5f5;
+                color: #2271b1;
+            }
+
+            .vss-lang-option.active {
+                background: #e8f4fd;
+                color: #2271b1;
+                font-weight: 600;
+            }
+
+            .vss-lang-flag {
+                font-size: 20px;
+            }
+
+            /* Mobile adjustments */
+            @media (max-width: 768px) {
+                .vss-floating-lang-switcher {
+                    bottom: 20px;
+                    right: 20px;
+                }
+
+                .vss-lang-current {
+                    padding: 10px 16px;
+                    font-size: 13px;
+                }
+
+                .vss-lang-menu {
+                    min-width: 160px;
+                }
+
+                .vss-lang-option {
+                    padding: 12px 16px;
+                    font-size: 13px;
+                }
+            }
+
+            /* Dark mode support for admin */
+            body.admin-color-midnight .vss-lang-menu,
+            body.admin-color-ocean .vss-lang-menu,
+            body.admin-color-nightfall .vss-lang-menu {
+                background: #1e1e1e;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            }
+
+            body.admin-color-midnight .vss-lang-option,
+            body.admin-color-ocean .vss-lang-option,
+            body.admin-color-nightfall .vss-lang-option {
+                color: #ccc;
+                border-bottom-color: #333;
+            }
+
+            body.admin-color-midnight .vss-lang-option:hover,
+            body.admin-color-ocean .vss-lang-option:hover,
+            body.admin-color-nightfall .vss-lang-option:hover {
+                background: #2a2a2a;
+                color: #fff;
+            }
+
+            body.admin-color-midnight .vss-lang-option.active,
+            body.admin-color-ocean .vss-lang-option.active,
+            body.admin-color-nightfall .vss-lang-option.active {
+                background: #2271b1;
+                color: #fff;
+            }
+        </style>
+
+        <script>
+            function toggleLanguageMenu() {
+                var menu = document.getElementById('vss-lang-menu');
+                menu.classList.toggle('active');
+            }
+
+            // Close menu when clicking outside
+            document.addEventListener('click', function(event) {
+                var switcher = document.getElementById('vss-floating-language-switcher');
+                var menu = document.getElementById('vss-lang-menu');
+
+                if (!switcher.contains(event.target)) {
+                    menu.classList.remove('active');
+                }
+            });
+        </script>
+        <?php
     }
 
     /**
@@ -213,7 +423,10 @@ class VSS_Vendor_Multilingual {
      * AJAX handler for language switching
      */
     public static function ajax_switch_language() {
-        check_ajax_referer( 'vss_frontend_nonce', 'nonce' );
+        // Check nonce if provided
+        if ( isset( $_POST['nonce'] ) ) {
+            check_ajax_referer( 'vss_frontend_nonce', 'nonce' );
+        }
 
         $language = isset( $_POST['language'] ) ? sanitize_text_field( $_POST['language'] ) : 'en';
         $user_id = get_current_user_id();
@@ -229,6 +442,9 @@ class VSS_Vendor_Multilingual {
         update_user_meta( $user_id, 'vss_preferred_language', $locale );
 
         // Update session
+        if ( ! session_id() ) {
+            session_start();
+        }
         $_SESSION['vss_vendor_language'] = $locale;
 
         wp_send_json_success( [
@@ -245,6 +461,9 @@ class VSS_Vendor_Multilingual {
             return;
         }
 
+        // Create nonce for AJAX
+        $nonce = wp_create_nonce( 'vss_frontend_nonce' );
+
         wp_add_inline_script( 'jquery', '
             function vssSetLanguage(language) {
                 jQuery.ajax({
@@ -253,12 +472,15 @@ class VSS_Vendor_Multilingual {
                     data: {
                         action: "vss_switch_language",
                         language: language,
-                        nonce: "' . wp_create_nonce( 'vss_frontend_nonce' ) . '"
+                        nonce: "' . $nonce . '"
                     },
                     success: function(response) {
                         if (response.success && response.data.reload) {
                             location.reload();
                         }
+                    },
+                    error: function() {
+                        alert("Language switch failed. Please try again.");
                     }
                 });
             }
@@ -313,6 +535,15 @@ class VSS_Vendor_Multilingual {
                 }
             }
         ' );
+
+        // Add admin styles if in admin area
+        if ( is_admin() ) {
+            wp_add_inline_style( 'admin-bar', '
+                #wpadminbar .vss-admin-bar-language > a {
+                    padding: 0 10px !important;
+                }
+            ' );
+        }
     }
 
     /**
