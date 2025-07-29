@@ -700,16 +700,26 @@ class VSS_External_Orders {
             ];
         }
 
+        // Set minimum date to July 1, 2025
+        $minimum_date = '2025-07-01T00:00:00Z';
+
         // Get last import date
         $last_import = get_option( 'vss_wc_last_import', false );
         $params = [
             'per_page' => 100,
             'orderby' => 'date',
             'order' => 'desc',
+            'after' => $minimum_date, // Always use minimum date as the starting point
         ];
 
+        // If we have a last import date that's after our minimum, use that instead
         if ( $last_import ) {
-            $params['after'] = date( 'c', strtotime( $last_import ) );
+            $last_import_time = strtotime( $last_import );
+            $minimum_time = strtotime( $minimum_date );
+
+            if ( $last_import_time > $minimum_time ) {
+                $params['after'] = date( 'c', $last_import_time );
+            }
         }
 
         $status_filter = get_option( 'vss_import_order_status', 'all' );
