@@ -803,27 +803,31 @@ class VSS_External_Orders {
         // Set order number to match original
         update_post_meta( $order->get_id(), '_order_number', $external_order['number'] );
 
+        // Safely set billing and shipping details
+        $billing_details = is_array($external_order['billing']) ? $external_order['billing'] : [];
+        $shipping_details = is_array($external_order['shipping']) ? $external_order['shipping'] : [];
+
         // Set billing details
-        $order->set_billing_first_name( $external_order['billing']['first_name'] );
-        $order->set_billing_last_name( $external_order['billing']['last_name'] );
-        $order->set_billing_email( $external_order['billing']['email'] );
-        $order->set_billing_phone( $external_order['billing']['phone'] );
-        $order->set_billing_address_1( $external_order['billing']['address_1'] );
-        $order->set_billing_address_2( $external_order['billing']['address_2'] );
-        $order->set_billing_city( $external_order['billing']['city'] );
-        $order->set_billing_state( $external_order['billing']['state'] );
-        $order->set_billing_postcode( $external_order['billing']['postcode'] );
-        $order->set_billing_country( $external_order['billing']['country'] );
+        $order->set_billing_first_name( $billing_details['first_name'] ?? '' );
+        $order->set_billing_last_name( $billing_details['last_name'] ?? '' );
+        $order->set_billing_email( $billing_details['email'] ?? '' );
+        $order->set_billing_phone( $billing_details['phone'] ?? '' );
+        $order->set_billing_address_1( $billing_details['address_1'] ?? '' );
+        $order->set_billing_address_2( $billing_details['address_2'] ?? '' );
+        $order->set_billing_city( $billing_details['city'] ?? '' );
+        $order->set_billing_state( $billing_details['state'] ?? '' );
+        $order->set_billing_postcode( $billing_details['postcode'] ?? '' );
+        $order->set_billing_country( $billing_details['country'] ?? '' );
 
         // Set shipping details
-        $order->set_shipping_first_name( $external_order['shipping']['first_name'] );
-        $order->set_shipping_last_name( $external_order['shipping']['last_name'] );
-        $order->set_shipping_address_1( $external_order['shipping']['address_1'] );
-        $order->set_shipping_address_2( $external_order['shipping']['address_2'] );
-        $order->set_shipping_city( $external_order['shipping']['city'] );
-        $order->set_shipping_state( $external_order['shipping']['state'] );
-        $order->set_shipping_postcode( $external_order['shipping']['postcode'] );
-        $order->set_shipping_country( $external_order['shipping']['country'] );
+        $order->set_shipping_first_name( $shipping_details['first_name'] ?? '' );
+        $order->set_shipping_last_name( $shipping_details['last_name'] ?? '' );
+        $order->set_shipping_address_1( $shipping_details['address_1'] ?? '' );
+        $order->set_shipping_address_2( $shipping_details['address_2'] ?? '' );
+        $order->set_shipping_city( $shipping_details['city'] ?? '' );
+        $order->set_shipping_state( $shipping_details['state'] ?? '' );
+        $order->set_shipping_postcode( $shipping_details['postcode'] ?? '' );
+        $order->set_shipping_country( $shipping_details['country'] ?? '' );
 
         // Set customer note if exists
         if ( ! empty( $external_order['customer_note'] ) ) {

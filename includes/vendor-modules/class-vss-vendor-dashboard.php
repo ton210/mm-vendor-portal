@@ -182,7 +182,7 @@ trait VSS_Vendor_Dashboard {
          */
         private static function render_pending_approvals() {
             $vendor_id = get_current_user_id();
-            $pending_orders = wc_get_orders( [
+            $pending_orders_data = wc_get_orders( [
                 'meta_query' => [
                     'relation' => 'AND',
                     [
@@ -202,7 +202,12 @@ trait VSS_Vendor_Dashboard {
                     ],
                 ],
                 'limit' => 5,
+                'type' => 'shop_order', // Ensure we only get shop orders
             ] );
+
+            $pending_orders = array_filter($pending_orders_data, function($order) {
+                return $order instanceof WC_Order;
+            });
 
             if ( empty( $pending_orders ) ) {
                 return;
