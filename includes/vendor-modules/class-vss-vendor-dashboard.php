@@ -182,28 +182,39 @@ trait VSS_Vendor_Dashboard {
          */
         private static function render_pending_approvals() {
             $vendor_id = get_current_user_id();
-            $pending_orders_data = wc_get_orders( [
-                'meta_query' => [
-                    'relation' => 'AND',
-                    [
-                        'key' => '_vss_vendor_user_id',
-                        'value' => $vendor_id,
-                    ],
-                    [
-                        'relation' => 'OR',
-                        [
-                            'key' => '_vss_mockup_status',
-                            'value' => 'disapproved',
-                        ],
-                        [
-                            'key' => '_vss_production_file_status',
-                            'value' => 'disapproved',
-                        ],
-                    ],
-                ],
+            // --- HPOS Compatible Order Query ---
+
+            // Get orders with disapproved mockups
+            $mockup_args = [
                 'limit' => 5,
-                'type' => 'shop_order', // Ensure we only get shop orders
-            ] );
+                'type' => 'shop_order',
+                '_vss_vendor_user_id' => $vendor_id,
+                '_vss_mockup_status' => 'disapproved',
+                'return' => 'ids',
+            ];
+            $mockup_disapproved_ids = wc_get_orders($mockup_args);
+
+            // Get orders with disapproved production files
+            $prod_file_args = [
+                'limit' => 5,
+                'type' => 'shop_order',
+                '_vss_vendor_user_id' => $vendor_id,
+                '_vss_production_file_status' => 'disapproved',
+                'return' => 'ids',
+            ];
+            $prod_file_disapproved_ids = wc_get_orders($prod_file_args);
+
+            // Merge and get unique order IDs, then limit to 5
+            $all_pending_ids = array_slice(array_unique(array_merge($mockup_disapproved_ids, $prod_file_disapproved_ids)), 0, 5);
+
+            // Get the actual order objects
+            $pending_orders_data = [];
+            if (!empty($all_pending_ids)) {
+                foreach($all_pending_ids as $order_id) {
+                    $pending_orders_data[] = wc_get_order($order_id);
+                }
+            }
+            // --- End HPOS Compatible Query ---
 
             $pending_orders = array_filter($pending_orders_data, function($order) {
                 return $order instanceof WC_Order;
