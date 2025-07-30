@@ -385,4 +385,42 @@ jQuery(document).ready(function($) {
     if ($.fn.tooltip) {
         $('.vss-tooltip').tooltip();
     }
+
+// Media uploader for admin
+    var mediaUploader;
+
+    $(document).on('click', '#vss-upload-file-btn', function(e) {
+        e.preventDefault();
+        if (mediaUploader) {
+            mediaUploader.open();
+            return;
+        }
+        mediaUploader = wp.media({
+            title: vss_admin_vars.media_uploader.title,
+            button: {
+                text: vss_admin_vars.media_uploader.button_text
+            },
+            library: {
+                type: 'application/zip'
+            },
+            multiple: false
+        });
+
+        mediaUploader.on('select', function() {
+            var attachment = mediaUploader.state().get('selection').first().toJSON();
+            $('#vss-attached-zip-id').val(attachment.id);
+            $('#post').submit(); // Save the order to attach the file
+        });
+
+        mediaUploader.open();
+    });
+
+    $(document).on('click', '#vss-remove-file-btn', function(e) {
+        e.preventDefault();
+        if (confirm(vss_admin_vars.media_uploader.remove_confirm)) {
+            $('#vss-attached-zip-id').val('');
+            $('#vss-remove-zip-file-input').val('1');
+            $('#post').submit(); // Save the order to remove the file
+        }
+    });
 });

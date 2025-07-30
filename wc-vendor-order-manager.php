@@ -533,6 +533,7 @@ class Vendor_Order_Manager {
         $is_orders_list = $hook === 'edit.php' && isset( $_GET['post_type'] ) && $_GET['post_type'] === 'shop_order';
 
         if ( $is_vss_page || $is_order_page || $is_orders_list ) {
+            wp_enqueue_media();
             // Admin styles
             wp_enqueue_style(
                 'vss-admin-styles',
@@ -579,11 +580,16 @@ class Vendor_Order_Manager {
             }
 
             // Localize admin script
-            wp_localize_script( 'vss-admin', 'vss_ajax', [
+            wp_localize_script( 'vss-admin', 'vss_admin_vars', [
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
                 'nonce' => wp_create_nonce( 'vss_admin_nonce' ),
                 'post_id' => isset( $_GET['post'] ) ? intval( $_GET['post'] ) : 0,
-                'debug' => defined('VSS_DEBUG') ? VSS_DEBUG : false,
+                
+                'media_uploader' => [
+                    'title' => __( 'Choose ZIP File', 'vss' ),
+                    'button_text' => __( 'Use This File', 'vss' ),
+                    'remove_confirm' => __( 'Are you sure you want to remove this file?', 'vss' ),
+                ]
             ] );
 
             // jQuery UI styles
