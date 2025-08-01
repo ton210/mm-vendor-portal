@@ -143,6 +143,7 @@ class VSS_External_Orders {
         register_setting( 'vss_external_orders', 'vss_import_interval' );
         register_setting( 'vss_external_orders', 'vss_default_vendor_id' );
         register_setting( 'vss_external_orders', 'vss_import_order_status' );
+        register_setting( 'vss_external_orders', 'vss_debug_mode_enabled' );
     }
 
     /**
@@ -533,6 +534,12 @@ class VSS_External_Orders {
             'timeout' => 30,
         ] );
 
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
+
         if ( is_wp_error( $response ) ) {
             return [
                 'success' => false,
@@ -579,6 +586,12 @@ class VSS_External_Orders {
             ]
         );
 
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
+
         if ( is_wp_error( $response ) ) {
             return [
                 'success' => false,
@@ -624,6 +637,12 @@ class VSS_External_Orders {
                 'timeout' => 30,
             ]
         );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
 
         if ( is_wp_error( $response ) ) {
             return [
@@ -689,6 +708,7 @@ class VSS_External_Orders {
      * Import WooCommerce orders
      */
     private static function import_woocommerce_orders() {
+        Vendor_Order_Manager::get_instance()->log( "Starting import_woocommerce_orders import.", "info" ); {
         $url = get_option( 'vss_wc_api_url' );
         $consumer_key = get_option( 'vss_wc_consumer_key' );
         $consumer_secret = get_option( 'vss_wc_consumer_secret' );
@@ -733,9 +753,15 @@ class VSS_External_Orders {
                 'headers' => [
                     'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
                 ],
-                'timeout' => 60,
+                J0,
             ]
         );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
 
         if ( is_wp_error( $response ) ) {
             return [
@@ -926,6 +952,7 @@ class VSS_External_Orders {
      * Import BigCommerce orders
      */
     private static function import_bigcommerce_orders() {
+        Vendor_Order_Manager::get_instance()->log( "Starting import_bigcommerce_orders import.", "info" ); {
         $store_hash = get_option( 'vss_bc_store_hash' );
         $access_token = get_option( 'vss_bc_access_token' );
 
@@ -964,9 +991,15 @@ class VSS_External_Orders {
                     'X-Auth-Token' => $access_token,
                     'Accept' => 'application/json',
                 ],
-                'timeout' => 60,
+                J0,
             ]
         );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
 
         if ( is_wp_error( $response ) ) {
             return [
@@ -1190,6 +1223,7 @@ class VSS_External_Orders {
      * Import Shopify orders
      */
     private static function import_shopify_orders() {
+        Vendor_Order_Manager::get_instance()->log( "Starting import_shopify_orders import.", "info" ); {
         $store_name = get_option( 'vss_shopify_store_name' );
         $access_token = get_option( 'vss_shopify_access_token' );
 
@@ -1228,9 +1262,15 @@ class VSS_External_Orders {
                     'X-Shopify-Access-Token' => $access_token,
                     'Content-Type' => 'application/json',
                 ],
-                'timeout' => 60,
+                J0,
             ]
         );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
 
         if ( is_wp_error( $response ) ) {
             return [
@@ -1468,6 +1508,12 @@ class VSS_External_Orders {
         $response = wp_remote_get( $api_url, [
             'headers' => [ 'X-Shopify-Access-Token' => $access_token ],
         ] );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
+
+        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
 
         $fulfillments = json_decode( wp_remote_retrieve_body( $response ), true );
         $fulfillment_id = ! empty( $fulfillments['fulfillments'] ) ? $fulfillments['fulfillments'][0]['id'] : null;
