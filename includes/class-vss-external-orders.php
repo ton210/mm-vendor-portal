@@ -292,7 +292,7 @@ class VSS_External_Orders {
 
                 <h2><?php esc_html_e( 'Shopify Store Settings', 'vss' ); ?></h2>
                 <div class="notice notice-info inline">
-                    <p><?php esc_html_e( 'Note: Only orders from July 28, 2025 onwards will be imported from Shopify.', 'vss' ); ?></p>
+                    <p><?php esc_html_e( 'Note: Only orders from July 1, 2025 onwards will be imported from Shopify.', 'vss' ); ?></p>
                 </div>
                 <table class="form-table">
                     <tr>
@@ -408,6 +408,9 @@ class VSS_External_Orders {
             <div id="vss-debug-console" style="margin-top: 20px; display: none;">
                 <h3><?php esc_html_e( 'Debug Console', 'vss' ); ?></h3>
                 <div class="vss-debug-output" id="vss-debug-output"></div>
+                <button type="button" class="button" id="vss-refresh-button" style="display: none; margin-top: 10px;">
+                    <?php esc_html_e( 'Refresh Page', 'vss' ); ?>
+                </button>
             </div>
             <?php endif; ?>
 
@@ -467,7 +470,10 @@ class VSS_External_Orders {
                     complete: function() {
                         button.prop('disabled', false);
                     }
-                });
+                // Refresh button handler
+            $('#vss-refresh-button').on('click', function() {
+                location.reload();
+            });
             });
 
             // Test BigCommerce connection
@@ -573,9 +579,15 @@ class VSS_External_Orders {
                                 });
                             }
 
-                            setTimeout(function() {
-                                location.reload();
-                            }, 2000);
+                            // Don't reload immediately if in debug mode
+                            if (!debugMode) {
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 2000);
+                            } else {
+                                addDebugMessage('Import completed. Refresh the page to see imported orders.', 'success');
+                                $('#vss-refresh-button').show();
+                            }
                         } else {
                             $('#vss-import-messages').html('<p class="error">Import failed: ' + response.data.message + '</p>');
                             addDebugMessage('Import failed: ' + response.data.message, 'error');
@@ -924,14 +936,15 @@ class VSS_External_Orders {
             'per_page' => 100,
             'orderby' => 'date',
             'order' => 'desc',
-            'after' => $minimum_date,
+            'after' => date('Y-m-d\TH:i:s', strtotime($minimum_date)),
         ];
 
         if ($last_import) {
             $last_import_time = strtotime($last_import);
             $minimum_time = strtotime($minimum_date);
             if ($last_import_time > $minimum_time) {
-                $params['after'] = date('c', $last_import_time);
+                // WooCommerce expects ISO 8601 format
+                $params['after'] = date('Y-m-d\TH:i:s', $last_import_time);
             }
         }
 
@@ -942,6 +955,7 @@ class VSS_External_Orders {
 
         $api_url = add_query_arg($params, $url . '/wp-json/wc/v3/orders');
         $debug_logs[] = self::debug_log( "API URL: " . $api_url, "info" );
+        $debug_logs[] = self::debug_log( "Date filter: after=" . $params['after'], "info" );
 
         $response = wp_remote_get( $api_url, [
             'headers' => [
@@ -1188,14 +1202,15 @@ class VSS_External_Orders {
         $params = [
             'limit' => 100,
             'sort' => 'date_created:desc',
-            'min_date_created' => $minimum_date,
+            'min_date_created' => date('Y-m-d\TH:i:s\Z', strtotime($minimum_date)),
         ];
 
         if ($last_import) {
             $last_import_time = strtotime($last_import);
             $minimum_time = strtotime($minimum_date);
             if ($last_import_time > $minimum_time) {
-                $params['min_date_created'] = date('c', $last_import_time);
+                // BigCommerce expects RFC3339 format
+                $params['min_date_created'] = date('Y-m-d\TH:i:s\Z', $last_import_time);
             }
         }
 
@@ -1476,20 +1491,21 @@ class VSS_External_Orders {
             ];
         }
 
-        $minimum_date = '2025-07-28T00:00:00Z';
+        $minimum_date = '2025-07-01T00:00:00Z';
         $last_import = get_option('vss_shopify_last_import', false);
 
         $params = [
             'limit' => 250,
             'status' => 'any',
-            'created_at_min' => $minimum_date,
+            'created_at_min' => date('Y-m-d\TH:i:s\Z', strtotime($minimum_date)),
         ];
 
         if ($last_import) {
             $last_import_time = strtotime($last_import);
             $minimum_time = strtotime($minimum_date);
             if ($last_import_time > $minimum_time) {
-                $params['created_at_min'] = date('c', $last_import_time);
+                // Shopify expects ISO 8601 format
+                $params['created_at_min'] = date('Y-m-d\TH:i:s\Z', $last_import_time);
             }
         }
 
@@ -1547,7 +1563,7 @@ class VSS_External_Orders {
         foreach ( $orders as $external_order ) {
             // Double-check the order date
             $order_date = strtotime( $external_order['created_at'] );
-            $minimum_time = strtotime( '2025-07-28' );
+            $minimum_time = strtotime( '2025-07-01' );
 
             if ( $order_date < $minimum_time ) {
                 $skipped++;
@@ -1571,7 +1587,7 @@ class VSS_External_Orders {
 
         $message = sprintf( __( '%d orders imported', 'vss' ), $imported );
         if ( $skipped > 0 ) {
-            $message .= sprintf( __( ' (%d orders skipped - before July 28, 2025)', 'vss' ), $skipped );
+            $message .= sprintf( __( ' (%d orders skipped - before July 1, 2025)', 'vss' ), $skipped );
         }
 
         return [
