@@ -708,54 +708,48 @@ class VSS_External_Orders {
      * Import WooCommerce orders
      */
     private static function import_woocommerce_orders() {
-        Vendor_Order_Manager::get_instance()->log( "Starting import_woocommerce_orders import.", "info" ); {
-        $url = get_option( 'vss_wc_api_url' );
-        $consumer_key = get_option( 'vss_wc_consumer_key' );
-        $consumer_secret = get_option( 'vss_wc_consumer_secret' );
+    Vendor_Order_Manager::get_instance()->log( "Starting import_woocommerce_orders import.", "info" );
 
-        if ( ! $url || ! $consumer_key || ! $consumer_secret ) {
-            return [
-                'imported' => 0,
-                'message' => __( 'API credentials not configured', 'vss' ),
-            ];
+    $url = get_option('vss_wc_api_url');
+    $consumer_key = get_option('vss_wc_consumer_key');
+    $consumer_secret = get_option('vss_wc_consumer_secret');
+
+    if (!$url || !$consumer_key || !$consumer_secret) {
+        return ['imported' => 0, 'message' => __('API credentials not configured', 'vss')];
+    }
+
+    $minimum_date = '2025-07-01T00:00:00Z';
+    $last_import = get_option('vss_wc_last_import', false);
+
+    $params = [
+        'per_page' => 100,
+        'orderby' => 'date',
+        'order' => 'desc',
+        'after' => $minimum_date,
+    ];
+
+    if ($last_import) {
+        $last_import_time = strtotime($last_import);
+        $minimum_time = strtotime($minimum_date);
+        if ($last_import_time > $minimum_time) {
+            $params['after'] = date('c', $last_import_time);
         }
+    }
 
-        // Set minimum date to July 1, 2025
-        $minimum_date = '2025-07-01T00:00:00Z';
+    $status_filter = get_option('vss_import_order_status', 'all');
+    if ($status_filter !== 'all') {
+        $params['status'] = explode(',', $status_filter);
+    }
 
-        // Get last import date
-        $last_import = get_option( 'vss_wc_last_import', false );
-        $params = [
-            'per_page' => 100,
-            'orderby' => 'date',
-            'order' => 'desc',
-            'after' => $minimum_date, // Always use minimum date as the starting point
-        ];
-
-        // If we have a last import date that's after our minimum, use that instead
-        if ( $last_import ) {
-            $last_import_time = strtotime( $last_import );
-            $minimum_time = strtotime( $minimum_date );
-
-            if ( $last_import_time > $minimum_time ) {
-                $params['after'] = date( 'c', $last_import_time );
-            }
-        }
-
-        $status_filter = get_option( 'vss_import_order_status', 'all' );
-        if ( $status_filter !== 'all' ) {
-            $params['status'] = explode( ',', $status_filter );
-        }
-
-        $response = wp_remote_get(
-            add_query_arg( $params, $url . '/wp-json/wc/v3/orders' ),
-            [
-                'headers' => [
-                    'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
-                ],
-                J0,
-            ]
-        );
+    $response = wp_remote_get(
+        add_query_arg($params, $url . '/wp-json/wc/v3/orders'),
+        [
+            'headers' => [
+                'Authorization' => 'Basic ' . base64_encode($consumer_key . ':' . $consumer_secret),
+            ],
+            'timeout' => 30,
+        ]
+    );
 
         Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
 
@@ -952,48 +946,42 @@ class VSS_External_Orders {
      * Import BigCommerce orders
      */
     private static function import_bigcommerce_orders() {
-        Vendor_Order_Manager::get_instance()->log( "Starting import_bigcommerce_orders import.", "info" ); {
-        $store_hash = get_option( 'vss_bc_store_hash' );
-        $access_token = get_option( 'vss_bc_access_token' );
+    Vendor_Order_Manager::get_instance()->log("Starting import_bigcommerce_orders import.", "info");
 
-        if ( ! $store_hash || ! $access_token ) {
-            return [
-                'imported' => 0,
-                'message' => __( 'API credentials not configured', 'vss' ),
-            ];
+    $store_hash = get_option('vss_bc_store_hash');
+    $access_token = get_option('vss_bc_access_token');
+
+    if (!$store_hash || !$access_token) {
+        return ['imported' => 0, 'message' => __('API credentials not configured', 'vss')];
+    }
+
+    $minimum_date = '2025-07-23T00:00:00Z';
+    $last_import = get_option('vss_bc_last_import', false);
+
+    $params = [
+        'limit' => 100,
+        'sort' => 'date_created:desc',
+        'min_date_created' => $minimum_date,
+    ];
+
+    if ($last_import) {
+        $last_import_time = strtotime($last_import);
+        $minimum_time = strtotime($minimum_date);
+        if ($last_import_time > $minimum_time) {
+            $params['min_date_created'] = date('c', $last_import_time);
         }
+    }
 
-        // Set minimum date to July 23, 2025
-        $minimum_date = '2025-07-23T00:00:00Z';
-
-        // Get last import date
-        $last_import = get_option( 'vss_bc_last_import', false );
-        $params = [
-            'limit' => 100,
-            'sort' => 'date_created:desc',
-            'min_date_created' => $minimum_date, // Always use minimum date
-        ];
-
-        // If we have a last import date that's after our minimum, use that instead
-        if ( $last_import ) {
-            $last_import_time = strtotime( $last_import );
-            $minimum_time = strtotime( $minimum_date );
-
-            if ( $last_import_time > $minimum_time ) {
-                $params['min_date_created'] = date( 'c', $last_import_time );
-            }
-        }
-
-        $response = wp_remote_get(
-            add_query_arg( $params, 'https://api.bigcommerce.com/stores/' . $store_hash . '/v2/orders' ),
-            [
-                'headers' => [
-                    'X-Auth-Token' => $access_token,
-                    'Accept' => 'application/json',
-                ],
-                J0,
-            ]
-        );
+    $response = wp_remote_get(
+        add_query_arg($params, 'https://api.bigcommerce.com/stores/' . $store_hash . '/v2/orders'),
+        [
+            'headers' => [
+                'X-Auth-Token' => $access_token,
+                'Accept' => 'application/json',
+            ],
+            'timeout' => 30,
+        ]
+    );
 
         Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
 
@@ -1223,48 +1211,42 @@ class VSS_External_Orders {
      * Import Shopify orders
      */
     private static function import_shopify_orders() {
-        Vendor_Order_Manager::get_instance()->log( "Starting import_shopify_orders import.", "info" ); {
-        $store_name = get_option( 'vss_shopify_store_name' );
-        $access_token = get_option( 'vss_shopify_access_token' );
+    Vendor_Order_Manager::get_instance()->log("Starting import_shopify_orders import.", "info");
 
-        if ( ! $store_name || ! $access_token ) {
-            return [
-                'imported' => 0,
-                'message' => __( 'API credentials not configured', 'vss' ),
-            ];
+    $store_name = get_option('vss_shopify_store_name');
+    $access_token = get_option('vss_shopify_access_token');
+
+    if (!$store_name || !$access_token) {
+        return ['imported' => 0, 'message' => __('API credentials not configured', 'vss')];
+    }
+
+    $minimum_date = '2025-07-28T00:00:00Z';
+    $last_import = get_option('vss_shopify_last_import', false);
+
+    $params = [
+        'limit' => 250,
+        'status' => 'any',
+        'created_at_min' => $minimum_date,
+    ];
+
+    if ($last_import) {
+        $last_import_time = strtotime($last_import);
+        $minimum_time = strtotime($minimum_date);
+        if ($last_import_time > $minimum_time) {
+            $params['created_at_min'] = date('c', $last_import_time);
         }
+    }
 
-        // Set minimum date to July 28, 2025
-        $minimum_date = '2025-07-28T00:00:00Z';
-
-        // Get last import date
-        $last_import = get_option( 'vss_shopify_last_import', false );
-        $params = [
-            'limit' => 250,
-            'status' => 'any',
-            'created_at_min' => $minimum_date,
-        ];
-
-        // If we have a last import date that's after our minimum, use that instead
-        if ( $last_import ) {
-            $last_import_time = strtotime( $last_import );
-            $minimum_time = strtotime( $minimum_date );
-
-            if ( $last_import_time > $minimum_time ) {
-                $params['created_at_min'] = date( 'c', $last_import_time );
-            }
-        }
-
-        $response = wp_remote_get(
-            add_query_arg( $params, 'https://' . $store_name . '.myshopify.com/admin/api/2023-10/orders.json' ),
-            [
-                'headers' => [
-                    'X-Shopify-Access-Token' => $access_token,
-                    'Content-Type' => 'application/json',
-                ],
-                J0,
-            ]
-        );
+    $response = wp_remote_get(
+        add_query_arg($params, 'https://' . $store_name . '.myshopify.com/admin/api/2023-10/orders.json'),
+        [
+            'headers' => [
+                'X-Shopify-Access-Token' => $access_token,
+                'Content-Type' => 'application/json',
+            ],
+            'timeout' => 30,
+        ]
+    );
 
         Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
 
