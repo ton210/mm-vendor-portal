@@ -71,7 +71,7 @@ trait VSS_Vendor_Initialization {
             add_action( 'wp_enqueue_scripts', [ self::class, 'enqueue_frontend_assets' ] );
 
             // Handle secure file downloads
-            add_action( 'init', [ self::class, 'handle_file_download' ], 1 );
+            add_action( 'init', [ self::class, 'handle_file_download' ], 20 );
         }
 
 

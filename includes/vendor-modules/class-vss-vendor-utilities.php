@@ -232,15 +232,18 @@ trait VSS_Vendor_Utilities {
         /**
          * Handle direct file downloads with authentication
          */
+                /**
+         * Handle direct file downloads with authentication
+         */
         public static function handle_file_download() {
             // Check if this is a VSS file download request
             if ( isset( $_GET['vss_download'] ) && isset( $_GET['file_id'] ) && isset( $_GET['order_id'] ) ) {
                 $file_id = intval( $_GET['file_id'] );
-                $order_id = intval( $_GET['order_id'] );
+                $order_id_or_number = intval( $_GET['order_id'] );
                 $nonce = isset( $_GET['_wpnonce'] ) ? $_GET['_wpnonce'] : '';
 
                 // Verify nonce
-                if ( ! wp_verify_nonce( $nonce, 'vss_download_file_' . $file_id . '_' . $order_id ) ) {
+                if ( ! wp_verify_nonce( $nonce, 'vss_download_file_' . $file_id . '_' . $order_id_or_number ) ) {
                     wp_die( __( 'Security check failed.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 403 ] );
                 }
 
@@ -250,10 +253,21 @@ trait VSS_Vendor_Utilities {
                 }
 
                 // Verify user has access to this order
-                $order = wc_get_order( $order_id );
+                $order = wc_get_order( $order_id_or_number );
+                if ( ! $order ) {
+                    // Try to find by order number if ID fails
+                    $orders = wc_get_orders( [ 'order_number' => $order_id_or_number ] );
+                    if ( ! empty( $orders ) ) {
+                        $order = $orders[0];
+                    }
+                }
+
                 if ( ! $order ) {
                     wp_die( __( 'Order not found.', 'vss' ), __( 'Error', 'vss' ), [ 'response' => 404 ] );
                 }
+
+                $order_id = $order->get_id();
+
 
                 $current_user_id = get_current_user_id();
                 $vendor_id = get_post_meta( $order_id, '_vss_vendor_user_id', true );

@@ -743,7 +743,7 @@ trait VSS_Vendor_Orders {
         ?>
         <tr class="<?php echo esc_attr( $row_class ); ?>">
             <td>
-                <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], get_permalink() ) ); ?>">
+                <a href="<?php echo esc_url( add_query_arg( [ 'vss_action' => 'view_order', 'order_id' => $order_id ], get_permalink( get_option( 'vss_vendor_portal_page_id' ) ) ) ); ?>">
                     #<?php echo esc_html( $order->get_order_number() ); ?>
                 </a>
                 <?php if ( $priority === 'high' || $priority === 'urgent' ) : ?>
