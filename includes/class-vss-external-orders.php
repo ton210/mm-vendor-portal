@@ -1,6 +1,6 @@
 <?php
 /**
- * VSS External Orders Integration
+ * VSS External Orders Integration - Improved Version
  *
  * Handles importing orders from external WooCommerce, BigCommerce, and Shopify stores
  * and syncs tracking information back to the source store.
@@ -43,6 +43,72 @@ class VSS_External_Orders {
 
         // Disable emails for imported orders
         add_action( 'woocommerce_before_order_object_save', [ self::class, 'disable_emails_for_imported_orders' ], 10, 2 );
+
+        // Add custom styles for debug output
+        add_action( 'admin_head', [ self::class, 'add_admin_styles' ] );
+    }
+
+    /**
+     * Add custom admin styles
+     */
+    public static function add_admin_styles() {
+        ?>
+        <style>
+            .vss-debug-output {
+                background: #23282d;
+                color: #0f0;
+                padding: 15px;
+                font-family: monospace;
+                font-size: 12px;
+                max-height: 400px;
+                overflow-y: auto;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+            .vss-debug-error {
+                color: #ff6b6b;
+            }
+            .vss-debug-success {
+                color: #51cf66;
+            }
+            .vss-debug-info {
+                color: #74c0fc;
+            }
+            .vss-debug-warning {
+                color: #ffd43b;
+            }
+            #vss-import-progress {
+                margin: 10px 0;
+            }
+            .vss-progress-bar {
+                width: 100%;
+                height: 20px;
+                background-color: #f0f0f1;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            .vss-progress-fill {
+                height: 100%;
+                background-color: #2271b1;
+                width: 0;
+                transition: width 0.3s ease;
+            }
+        </style>
+        <?php
+    }
+
+    /**
+     * Debug logging helper
+     */
+    private static function debug_log( $message, $type = 'info' ) {
+        if ( get_option( 'vss_debug_mode_enabled' ) ) {
+            error_log( '[VSS External Orders] ' . $message );
+        }
+        return [
+            'message' => $message,
+            'type' => $type,
+            'time' => current_time( 'H:i:s' )
+        ];
     }
 
     /**
@@ -293,6 +359,15 @@ class VSS_External_Orders {
                             </select>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Debug Mode', 'vss' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="vss_debug_mode_enabled" value="1" <?php checked( get_option( 'vss_debug_mode_enabled' ), 1 ); ?> />
+                                <?php esc_html_e( 'Enable debug mode (shows detailed import information)', 'vss' ); ?>
+                            </label>
+                        </td>
+                    </tr>
                 </table>
 
                 <?php submit_button(); ?>
@@ -316,10 +391,25 @@ class VSS_External_Orders {
                 </button>
             </div>
 
-            <div id="vss-import-log" style="margin-top: 20px; padding: 10px; background: #f1f1f1; display: none;">
+            <div id="vss-import-progress" style="display: none;">
+                <h3><?php esc_html_e( 'Import Progress', 'vss' ); ?></h3>
+                <div class="vss-progress-bar">
+                    <div class="vss-progress-fill"></div>
+                </div>
+                <p id="vss-progress-text"></p>
+            </div>
+
+            <div id="vss-import-log" style="margin-top: 20px; display: none;">
                 <h3><?php esc_html_e( 'Import Log', 'vss' ); ?></h3>
                 <div id="vss-import-messages"></div>
             </div>
+
+            <?php if ( get_option( 'vss_debug_mode_enabled' ) ) : ?>
+            <div id="vss-debug-console" style="margin-top: 20px; display: none;">
+                <h3><?php esc_html_e( 'Debug Console', 'vss' ); ?></h3>
+                <div class="vss-debug-output" id="vss-debug-output"></div>
+            </div>
+            <?php endif; ?>
 
             <hr />
 
@@ -329,10 +419,29 @@ class VSS_External_Orders {
 
         <script>
         jQuery(document).ready(function($) {
+            var debugMode = <?php echo get_option( 'vss_debug_mode_enabled' ) ? 'true' : 'false'; ?>;
+            var debugConsole = $('#vss-debug-output');
+
+            function addDebugMessage(message, type) {
+                if (!debugMode) return;
+
+                var timestamp = new Date().toLocaleTimeString();
+                var cssClass = 'vss-debug-' + type;
+                debugConsole.append('<div class="' + cssClass + '">[' + timestamp + '] ' + message + '</div>');
+                debugConsole.scrollTop(debugConsole[0].scrollHeight);
+            }
+
+            function updateProgress(current, total, message) {
+                var percentage = total > 0 ? (current / total * 100) : 0;
+                $('#vss-progress-text').text(message);
+                $('.vss-progress-fill').css('width', percentage + '%');
+            }
+
             // Test WooCommerce connection
             $('#vss-test-wc-connection').on('click', function() {
                 var button = $(this);
                 button.prop('disabled', true);
+                addDebugMessage('Testing WooCommerce connection...', 'info');
 
                 $.ajax({
                     url: ajaxurl,
@@ -344,10 +453,16 @@ class VSS_External_Orders {
                     },
                     success: function(response) {
                         if (response.success) {
+                            addDebugMessage('WooCommerce connection successful!', 'success');
                             alert('WooCommerce connection successful!');
                         } else {
+                            addDebugMessage('WooCommerce connection failed: ' + response.data.message, 'error');
                             alert('Connection failed: ' + response.data.message);
                         }
+                    },
+                    error: function(xhr, status, error) {
+                        addDebugMessage('WooCommerce connection error: ' + error, 'error');
+                        alert('Connection error: ' + error);
                     },
                     complete: function() {
                         button.prop('disabled', false);
@@ -359,6 +474,7 @@ class VSS_External_Orders {
             $('#vss-test-bc-connection').on('click', function() {
                 var button = $(this);
                 button.prop('disabled', true);
+                addDebugMessage('Testing BigCommerce connection...', 'info');
 
                 $.ajax({
                     url: ajaxurl,
@@ -370,10 +486,16 @@ class VSS_External_Orders {
                     },
                     success: function(response) {
                         if (response.success) {
+                            addDebugMessage('BigCommerce connection successful!', 'success');
                             alert('BigCommerce connection successful!');
                         } else {
+                            addDebugMessage('BigCommerce connection failed: ' + response.data.message, 'error');
                             alert('Connection failed: ' + response.data.message);
                         }
+                    },
+                    error: function(xhr, status, error) {
+                        addDebugMessage('BigCommerce connection error: ' + error, 'error');
+                        alert('Connection error: ' + error);
                     },
                     complete: function() {
                         button.prop('disabled', false);
@@ -385,6 +507,7 @@ class VSS_External_Orders {
             $('#vss-test-shopify-connection').on('click', function() {
                 var button = $(this);
                 button.prop('disabled', true);
+                addDebugMessage('Testing Shopify connection...', 'info');
 
                 $.ajax({
                     url: ajaxurl,
@@ -396,10 +519,16 @@ class VSS_External_Orders {
                     },
                     success: function(response) {
                         if (response.success) {
+                            addDebugMessage('Shopify connection successful!', 'success');
                             alert('Shopify connection successful!');
                         } else {
+                            addDebugMessage('Shopify connection failed: ' + response.data.message, 'error');
                             alert('Connection failed: ' + response.data.message);
                         }
+                    },
+                    error: function(xhr, status, error) {
+                        addDebugMessage('Shopify connection error: ' + error, 'error');
+                        alert('Connection error: ' + error);
                     },
                     complete: function() {
                         button.prop('disabled', false);
@@ -413,25 +542,73 @@ class VSS_External_Orders {
                 button.prop('disabled', true);
 
                 $('#vss-import-log').show();
+                $('#vss-import-progress').show();
+                if (debugMode) {
+                    $('#vss-debug-console').show();
+                }
+
                 $('#vss-import-messages').html('<p>Starting import...</p>');
+                addDebugMessage('Starting order import process...', 'info');
+                updateProgress(0, 3, 'Initializing import...');
 
                 $.ajax({
                     url: ajaxurl,
                     type: 'POST',
+                    dataType: 'json',
+                    timeout: 120000, // 2 minute timeout
                     data: {
                         action: 'vss_import_external_orders',
                         _ajax_nonce: '<?php echo wp_create_nonce( 'vss_external_orders' ); ?>'
                     },
                     success: function(response) {
+                        addDebugMessage('Import response received', 'info');
+
                         if (response.success) {
                             $('#vss-import-messages').html(response.data.log);
-                            location.reload(); // Refresh to show new orders
+                            updateProgress(3, 3, 'Import completed!');
+
+                            if (response.data.debug) {
+                                response.data.debug.forEach(function(log) {
+                                    addDebugMessage(log.message, log.type);
+                                });
+                            }
+
+                            setTimeout(function() {
+                                location.reload();
+                            }, 2000);
                         } else {
                             $('#vss-import-messages').html('<p class="error">Import failed: ' + response.data.message + '</p>');
+                            addDebugMessage('Import failed: ' + response.data.message, 'error');
+                            updateProgress(0, 3, 'Import failed');
                         }
                     },
-                    error: function() {
-                        $('#vss-import-messages').html('<p class="error">Import failed: Network error</p>');
+                    error: function(xhr, status, error) {
+                        var errorMsg = 'Import failed: ';
+
+                        if (status === 'timeout') {
+                            errorMsg += 'Request timed out. The import may still be running in the background.';
+                        } else if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                            errorMsg += xhr.responseJSON.data.message;
+                        } else if (xhr.responseText) {
+                            // Try to extract error from response
+                            try {
+                                var match = xhr.responseText.match(/<b>Fatal error<\/b>:(.+?)in/);
+                                if (match) {
+                                    errorMsg += 'PHP Fatal Error: ' + match[1].trim();
+                                } else {
+                                    errorMsg += 'Server error. Check PHP error logs.';
+                                }
+                            } catch(e) {
+                                errorMsg += error || 'Unknown error';
+                            }
+                        } else {
+                            errorMsg += error || 'Network error';
+                        }
+
+                        $('#vss-import-messages').html('<p class="error">' + errorMsg + '</p>');
+                        addDebugMessage(errorMsg, 'error');
+                        addDebugMessage('Full error details: ' + JSON.stringify({status: status, error: error, response: xhr.responseText}), 'error');
+                        updateProgress(0, 3, 'Import failed');
                     },
                     complete: function() {
                         button.prop('disabled', false);
@@ -534,12 +711,6 @@ class VSS_External_Orders {
             'timeout' => 30,
         ] );
 
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
-
         if ( is_wp_error( $response ) ) {
             return [
                 'success' => false,
@@ -585,12 +756,6 @@ class VSS_External_Orders {
                 'timeout' => 30,
             ]
         );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
 
         if ( is_wp_error( $response ) ) {
             return [
@@ -638,12 +803,6 @@ class VSS_External_Orders {
             ]
         );
 
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
-
         if ( is_wp_error( $response ) ) {
             return [
                 'success' => false,
@@ -676,106 +835,167 @@ class VSS_External_Orders {
         }
 
         $log = [];
+        $debug_logs = [];
         $total_imported = 0;
 
-        // Import from WooCommerce
-        $wc_result = self::import_woocommerce_orders();
-        $log[] = sprintf( __( 'WooCommerce: %s', 'vss' ), $wc_result['message'] );
-        $total_imported += $wc_result['imported'];
+        try {
+            // Set maximum execution time
+            @set_time_limit( 300 ); // 5 minutes
 
-        // Import from BigCommerce
-        $bc_result = self::import_bigcommerce_orders();
-        $log[] = sprintf( __( 'BigCommerce: %s', 'vss' ), $bc_result['message'] );
-        $total_imported += $bc_result['imported'];
+            // Increase memory limit if possible
+            @ini_set( 'memory_limit', '256M' );
 
-        // Import from Shopify
-        $shopify_result = self::import_shopify_orders();
-        $log[] = sprintf( __( 'Shopify: %s', 'vss' ), $shopify_result['message'] );
-        $total_imported += $shopify_result['imported'];
+            $debug_logs[] = self::debug_log( 'Starting import process', 'info' );
 
-        // Log import
-        self::log_import( 'manual', $total_imported, 'success' );
+            // Import from WooCommerce
+            $debug_logs[] = self::debug_log( 'Starting WooCommerce import...', 'info' );
+            $wc_result = self::import_woocommerce_orders();
+            $log[] = sprintf( __( 'WooCommerce: %s', 'vss' ), $wc_result['message'] );
+            $total_imported += $wc_result['imported'];
+            if ( isset( $wc_result['debug'] ) ) {
+                $debug_logs = array_merge( $debug_logs, $wc_result['debug'] );
+            }
 
-        $log[] = sprintf( __( 'Total orders imported: %d', 'vss' ), $total_imported );
+            // Import from BigCommerce
+            $debug_logs[] = self::debug_log( 'Starting BigCommerce import...', 'info' );
+            $bc_result = self::import_bigcommerce_orders();
+            $log[] = sprintf( __( 'BigCommerce: %s', 'vss' ), $bc_result['message'] );
+            $total_imported += $bc_result['imported'];
+            if ( isset( $bc_result['debug'] ) ) {
+                $debug_logs = array_merge( $debug_logs, $bc_result['debug'] );
+            }
 
-        wp_send_json_success( [
-            'imported' => $total_imported,
-            'log' => '<p>' . implode( '</p><p>', $log ) . '</p>',
-        ] );
+            // Import from Shopify
+            $debug_logs[] = self::debug_log( 'Starting Shopify import...', 'info' );
+            $shopify_result = self::import_shopify_orders();
+            $log[] = sprintf( __( 'Shopify: %s', 'vss' ), $shopify_result['message'] );
+            $total_imported += $shopify_result['imported'];
+            if ( isset( $shopify_result['debug'] ) ) {
+                $debug_logs = array_merge( $debug_logs, $shopify_result['debug'] );
+            }
+
+            // Log import
+            self::log_import( 'manual', $total_imported, 'success' );
+
+            $log[] = sprintf( __( 'Total orders imported: %d', 'vss' ), $total_imported );
+            $debug_logs[] = self::debug_log( 'Import completed successfully', 'success' );
+
+            wp_send_json_success( [
+                'imported' => $total_imported,
+                'log' => '<p>' . implode( '</p><p>', $log ) . '</p>',
+                'debug' => $debug_logs,
+            ] );
+
+        } catch ( Exception $e ) {
+            $debug_logs[] = self::debug_log( 'Fatal error: ' . $e->getMessage(), 'error' );
+            self::log_import( 'manual', 0, 'error' );
+
+            wp_send_json_error( [
+                'message' => $e->getMessage(),
+                'debug' => $debug_logs,
+            ] );
+        }
     }
 
     /**
      * Import WooCommerce orders
      */
     private static function import_woocommerce_orders() {
-    Vendor_Order_Manager::get_instance()->log( "Starting import_woocommerce_orders import.", "info" );
+        $debug_logs = [];
+        $debug_logs[] = self::debug_log( "Starting WooCommerce orders import", "info" );
 
-    $url = get_option('vss_wc_api_url');
-    $consumer_key = get_option('vss_wc_consumer_key');
-    $consumer_secret = get_option('vss_wc_consumer_secret');
+        $url = get_option('vss_wc_api_url');
+        $consumer_key = get_option('vss_wc_consumer_key');
+        $consumer_secret = get_option('vss_wc_consumer_secret');
 
-    if (!$url || !$consumer_key || !$consumer_secret) {
-        return ['imported' => 0, 'message' => __('API credentials not configured', 'vss')];
-    }
-
-    $minimum_date = '2025-07-01T00:00:00Z';
-    $last_import = get_option('vss_wc_last_import', false);
-
-    $params = [
-        'per_page' => 100,
-        'orderby' => 'date',
-        'order' => 'desc',
-        'after' => $minimum_date,
-    ];
-
-    if ($last_import) {
-        $last_import_time = strtotime($last_import);
-        $minimum_time = strtotime($minimum_date);
-        if ($last_import_time > $minimum_time) {
-            $params['after'] = date('c', $last_import_time);
+        if (!$url || !$consumer_key || !$consumer_secret) {
+            $debug_logs[] = self::debug_log( "WooCommerce API credentials not configured", "error" );
+            return [
+                'imported' => 0,
+                'message' => __('API credentials not configured', 'vss'),
+                'debug' => $debug_logs
+            ];
         }
-    }
 
-    $status_filter = get_option('vss_import_order_status', 'all');
-    if ($status_filter !== 'all') {
-        $params['status'] = explode(',', $status_filter);
-    }
+        $minimum_date = '2025-07-01T00:00:00Z';
+        $last_import = get_option('vss_wc_last_import', false);
 
-    $response = wp_remote_get(
-        add_query_arg($params, $url . '/wp-json/wc/v3/orders'),
-        [
+        $params = [
+            'per_page' => 100,
+            'orderby' => 'date',
+            'order' => 'desc',
+            'after' => $minimum_date,
+        ];
+
+        if ($last_import) {
+            $last_import_time = strtotime($last_import);
+            $minimum_time = strtotime($minimum_date);
+            if ($last_import_time > $minimum_time) {
+                $params['after'] = date('c', $last_import_time);
+            }
+        }
+
+        $status_filter = get_option('vss_import_order_status', 'all');
+        if ($status_filter !== 'all') {
+            $params['status'] = explode(',', $status_filter);
+        }
+
+        $api_url = add_query_arg($params, $url . '/wp-json/wc/v3/orders');
+        $debug_logs[] = self::debug_log( "API URL: " . $api_url, "info" );
+
+        $response = wp_remote_get( $api_url, [
             'headers' => [
                 'Authorization' => 'Basic ' . base64_encode($consumer_key . ':' . $consumer_secret),
             ],
-            'timeout' => 30,
-        ]
-    );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
+            'timeout' => 60,
+            'sslverify' => false, // For debugging - remove in production
+        ]);
 
         if ( is_wp_error( $response ) ) {
+            $debug_logs[] = self::debug_log( "WooCommerce API error: " . $response->get_error_message(), "error" );
             return [
                 'imported' => 0,
                 'message' => $response->get_error_message(),
+                'debug' => $debug_logs
+            ];
+        }
+
+        $response_code = wp_remote_retrieve_response_code( $response );
+        $debug_logs[] = self::debug_log( "WooCommerce API response code: " . $response_code, "info" );
+
+        if ( $response_code !== 200 ) {
+            $body = wp_remote_retrieve_body( $response );
+            $debug_logs[] = self::debug_log( "WooCommerce API error response: " . $body, "error" );
+            return [
+                'imported' => 0,
+                'message' => sprintf( __( 'API returned status code %d', 'vss' ), $response_code ),
+                'debug' => $debug_logs
             ];
         }
 
         $orders = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( ! is_array( $orders ) ) {
+            $debug_logs[] = self::debug_log( "Invalid JSON response from WooCommerce API", "error" );
             return [
                 'imported' => 0,
                 'message' => __( 'Invalid response from API', 'vss' ),
+                'debug' => $debug_logs
             ];
         }
 
+        $debug_logs[] = self::debug_log( "Found " . count($orders) . " orders to process", "info" );
+
         $imported = 0;
         foreach ( $orders as $external_order ) {
-            if ( self::create_order_from_woocommerce( $external_order ) ) {
-                $imported++;
+            try {
+                if ( self::create_order_from_woocommerce( $external_order ) ) {
+                    $imported++;
+                    $debug_logs[] = self::debug_log( "Successfully imported order #" . $external_order['number'], "success" );
+                } else {
+                    $debug_logs[] = self::debug_log( "Order #" . $external_order['number'] . " already exists", "warning" );
+                }
+            } catch ( Exception $e ) {
+                $debug_logs[] = self::debug_log( "Error importing order #" . $external_order['number'] . ": " . $e->getMessage(), "error" );
             }
         }
 
@@ -784,6 +1004,7 @@ class VSS_External_Orders {
         return [
             'imported' => $imported,
             'message' => sprintf( __( '%d orders imported', 'vss' ), $imported ),
+            'debug' => $debug_logs
         ];
     }
 
@@ -817,7 +1038,7 @@ class VSS_External_Orders {
         ] );
 
         if ( ! $order ) {
-            return false;
+            throw new Exception( 'Failed to create order' );
         }
 
         // Set order number to match original
@@ -897,15 +1118,15 @@ class VSS_External_Orders {
         // Set payment method
         if ( ! empty( $external_order['payment_method'] ) ) {
             $order->set_payment_method( $external_order['payment_method'] );
-            $order->set_payment_method_title( $external_order['payment_method_title'] );
+            $order->set_payment_method_title( $external_order['payment_method_title'] ?? $external_order['payment_method'] );
         }
 
         // Set totals
-        $order->set_discount_total( $external_order['discount_total'] );
-        $order->set_discount_tax( $external_order['discount_tax'] );
-        $order->set_shipping_total( $external_order['shipping_total'] );
-        $order->set_shipping_tax( $external_order['shipping_tax'] );
-        $order->set_cart_tax( $external_order['cart_tax'] );
+        $order->set_discount_total( $external_order['discount_total'] ?? 0 );
+        $order->set_discount_tax( $external_order['discount_tax'] ?? 0 );
+        $order->set_shipping_total( $external_order['shipping_total'] ?? 0 );
+        $order->set_shipping_tax( $external_order['shipping_tax'] ?? 0 );
+        $order->set_cart_tax( $external_order['cart_tax'] ?? 0 );
         $order->set_total( $external_order['total'] );
 
         // Set order date
@@ -946,63 +1167,83 @@ class VSS_External_Orders {
      * Import BigCommerce orders
      */
     private static function import_bigcommerce_orders() {
-    Vendor_Order_Manager::get_instance()->log("Starting import_bigcommerce_orders import.", "info");
+        $debug_logs = [];
+        $debug_logs[] = self::debug_log("Starting BigCommerce orders import", "info");
 
-    $store_hash = get_option('vss_bc_store_hash');
-    $access_token = get_option('vss_bc_access_token');
+        $store_hash = get_option('vss_bc_store_hash');
+        $access_token = get_option('vss_bc_access_token');
 
-    if (!$store_hash || !$access_token) {
-        return ['imported' => 0, 'message' => __('API credentials not configured', 'vss')];
-    }
-
-    $minimum_date = '2025-07-23T00:00:00Z';
-    $last_import = get_option('vss_bc_last_import', false);
-
-    $params = [
-        'limit' => 100,
-        'sort' => 'date_created:desc',
-        'min_date_created' => $minimum_date,
-    ];
-
-    if ($last_import) {
-        $last_import_time = strtotime($last_import);
-        $minimum_time = strtotime($minimum_date);
-        if ($last_import_time > $minimum_time) {
-            $params['min_date_created'] = date('c', $last_import_time);
+        if (!$store_hash || !$access_token) {
+            $debug_logs[] = self::debug_log("BigCommerce API credentials not configured", "error");
+            return [
+                'imported' => 0,
+                'message' => __('API credentials not configured', 'vss'),
+                'debug' => $debug_logs
+            ];
         }
-    }
 
-    $response = wp_remote_get(
-        add_query_arg($params, 'https://api.bigcommerce.com/stores/' . $store_hash . '/v2/orders'),
-        [
+        $minimum_date = '2025-07-23T00:00:00Z';
+        $last_import = get_option('vss_bc_last_import', false);
+
+        $params = [
+            'limit' => 100,
+            'sort' => 'date_created:desc',
+            'min_date_created' => $minimum_date,
+        ];
+
+        if ($last_import) {
+            $last_import_time = strtotime($last_import);
+            $minimum_time = strtotime($minimum_date);
+            if ($last_import_time > $minimum_time) {
+                $params['min_date_created'] = date('c', $last_import_time);
+            }
+        }
+
+        $api_url = add_query_arg($params, 'https://api.bigcommerce.com/stores/' . $store_hash . '/v2/orders');
+        $debug_logs[] = self::debug_log("API URL: " . $api_url, "info");
+
+        $response = wp_remote_get( $api_url, [
             'headers' => [
                 'X-Auth-Token' => $access_token,
                 'Accept' => 'application/json',
             ],
-            'timeout' => 30,
-        ]
-    );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
+            'timeout' => 60,
+            'sslverify' => false, // For debugging - remove in production
+        ]);
 
         if ( is_wp_error( $response ) ) {
+            $debug_logs[] = self::debug_log("BigCommerce API error: " . $response->get_error_message(), "error");
             return [
                 'imported' => 0,
                 'message' => $response->get_error_message(),
+                'debug' => $debug_logs
+            ];
+        }
+
+        $response_code = wp_remote_retrieve_response_code( $response );
+        $debug_logs[] = self::debug_log("BigCommerce API response code: " . $response_code, "info");
+
+        if ( $response_code !== 200 ) {
+            $body = wp_remote_retrieve_body( $response );
+            $debug_logs[] = self::debug_log("BigCommerce API error response: " . $body, "error");
+            return [
+                'imported' => 0,
+                'message' => sprintf( __( 'API returned status code %d', 'vss' ), $response_code ),
+                'debug' => $debug_logs
             ];
         }
 
         $orders = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( ! is_array( $orders ) ) {
+            $debug_logs[] = self::debug_log("Invalid JSON response from BigCommerce API", "error");
             return [
                 'imported' => 0,
                 'message' => __( 'Invalid response from API', 'vss' ),
+                'debug' => $debug_logs
             ];
         }
+
+        $debug_logs[] = self::debug_log("Found " . count($orders) . " orders to process", "info");
 
         $imported = 0;
         $skipped = 0;
@@ -1014,11 +1255,19 @@ class VSS_External_Orders {
 
             if ( $order_date < $minimum_time ) {
                 $skipped++;
-                continue; // Skip orders before July 23, 2025
+                $debug_logs[] = self::debug_log("Skipped order #" . $external_order['id'] . " (before cutoff date)", "warning");
+                continue;
             }
 
-            if ( self::create_order_from_bigcommerce( $external_order ) ) {
-                $imported++;
+            try {
+                if ( self::create_order_from_bigcommerce( $external_order ) ) {
+                    $imported++;
+                    $debug_logs[] = self::debug_log("Successfully imported order #" . $external_order['id'], "success");
+                } else {
+                    $debug_logs[] = self::debug_log("Order #" . $external_order['id'] . " already exists", "warning");
+                }
+            } catch ( Exception $e ) {
+                $debug_logs[] = self::debug_log("Error importing order #" . $external_order['id'] . ": " . $e->getMessage(), "error");
             }
         }
 
@@ -1032,6 +1281,7 @@ class VSS_External_Orders {
         return [
             'imported' => $imported,
             'message' => $message,
+            'debug' => $debug_logs
         ];
     }
 
@@ -1081,7 +1331,7 @@ class VSS_External_Orders {
         ] );
 
         if ( ! $order ) {
-            return false;
+            throw new Exception( 'Failed to create order' );
         }
 
         // Set order number to match original
@@ -1089,28 +1339,28 @@ class VSS_External_Orders {
 
         // Set billing details
         $billing = $external_order['billing_address'];
-        $order->set_billing_first_name( $billing['first_name'] );
-        $order->set_billing_last_name( $billing['last_name'] );
-        $order->set_billing_email( $billing['email'] );
-        $order->set_billing_phone( $billing['phone'] );
-        $order->set_billing_address_1( $billing['street_1'] );
-        $order->set_billing_address_2( $billing['street_2'] );
-        $order->set_billing_city( $billing['city'] );
-        $order->set_billing_state( $billing['state'] );
-        $order->set_billing_postcode( $billing['zip'] );
-        $order->set_billing_country( $billing['country_iso2'] );
+        $order->set_billing_first_name( $billing['first_name'] ?? '' );
+        $order->set_billing_last_name( $billing['last_name'] ?? '' );
+        $order->set_billing_email( $billing['email'] ?? '' );
+        $order->set_billing_phone( $billing['phone'] ?? '' );
+        $order->set_billing_address_1( $billing['street_1'] ?? '' );
+        $order->set_billing_address_2( $billing['street_2'] ?? '' );
+        $order->set_billing_city( $billing['city'] ?? '' );
+        $order->set_billing_state( $billing['state'] ?? '' );
+        $order->set_billing_postcode( $billing['zip'] ?? '' );
+        $order->set_billing_country( $billing['country_iso2'] ?? '' );
 
         // Set shipping details if exists
         if ( ! empty( $external_order['shipping_addresses'] ) && isset( $external_order['shipping_addresses'][0] ) ) {
             $shipping = $external_order['shipping_addresses'][0];
-            $order->set_shipping_first_name( $shipping['first_name'] );
-            $order->set_shipping_last_name( $shipping['last_name'] );
-            $order->set_shipping_address_1( $shipping['street_1'] );
-            $order->set_shipping_address_2( $shipping['street_2'] );
-            $order->set_shipping_city( $shipping['city'] );
-            $order->set_shipping_state( $shipping['state'] );
-            $order->set_shipping_postcode( $shipping['zip'] );
-            $order->set_shipping_country( $shipping['country_iso2'] );
+            $order->set_shipping_first_name( $shipping['first_name'] ?? '' );
+            $order->set_shipping_last_name( $shipping['last_name'] ?? '' );
+            $order->set_shipping_address_1( $shipping['street_1'] ?? '' );
+            $order->set_shipping_address_2( $shipping['street_2'] ?? '' );
+            $order->set_shipping_city( $shipping['city'] ?? '' );
+            $order->set_shipping_state( $shipping['state'] ?? '' );
+            $order->set_shipping_postcode( $shipping['zip'] ?? '' );
+            $order->set_shipping_country( $shipping['country_iso2'] ?? '' );
         }
 
         // Set customer note if exists
@@ -1165,12 +1415,12 @@ class VSS_External_Orders {
         }
 
         // Set payment method
-        $order->set_payment_method( $external_order['payment_method'] );
+        $order->set_payment_method( $external_order['payment_method'] ?? 'manual' );
 
         // Set totals
-        $order->set_discount_total( $external_order['discount_amount'] );
-        $order->set_shipping_total( $external_order['shipping_cost_ex_tax'] );
-        $order->set_shipping_tax( $external_order['shipping_cost_tax'] );
+        $order->set_discount_total( $external_order['discount_amount'] ?? 0 );
+        $order->set_shipping_total( $external_order['shipping_cost_ex_tax'] ?? 0 );
+        $order->set_shipping_tax( $external_order['shipping_cost_tax'] ?? 0 );
         $order->set_total( $external_order['total_inc_tax'] );
 
         // Set order date
@@ -1211,53 +1461,69 @@ class VSS_External_Orders {
      * Import Shopify orders
      */
     private static function import_shopify_orders() {
-    Vendor_Order_Manager::get_instance()->log("Starting import_shopify_orders import.", "info");
+        $debug_logs = [];
+        $debug_logs[] = self::debug_log("Starting Shopify orders import", "info");
 
-    $store_name = get_option('vss_shopify_store_name');
-    $access_token = get_option('vss_shopify_access_token');
+        $store_name = get_option('vss_shopify_store_name');
+        $access_token = get_option('vss_shopify_access_token');
 
-    if (!$store_name || !$access_token) {
-        return ['imported' => 0, 'message' => __('API credentials not configured', 'vss')];
-    }
-
-    $minimum_date = '2025-07-28T00:00:00Z';
-    $last_import = get_option('vss_shopify_last_import', false);
-
-    $params = [
-        'limit' => 250,
-        'status' => 'any',
-        'created_at_min' => $minimum_date,
-    ];
-
-    if ($last_import) {
-        $last_import_time = strtotime($last_import);
-        $minimum_time = strtotime($minimum_date);
-        if ($last_import_time > $minimum_time) {
-            $params['created_at_min'] = date('c', $last_import_time);
+        if (!$store_name || !$access_token) {
+            $debug_logs[] = self::debug_log("Shopify API credentials not configured", "error");
+            return [
+                'imported' => 0,
+                'message' => __('API credentials not configured', 'vss'),
+                'debug' => $debug_logs
+            ];
         }
-    }
 
-    $response = wp_remote_get(
-        add_query_arg($params, 'https://' . $store_name . '.myshopify.com/admin/api/2023-10/orders.json'),
-        [
+        $minimum_date = '2025-07-28T00:00:00Z';
+        $last_import = get_option('vss_shopify_last_import', false);
+
+        $params = [
+            'limit' => 250,
+            'status' => 'any',
+            'created_at_min' => $minimum_date,
+        ];
+
+        if ($last_import) {
+            $last_import_time = strtotime($last_import);
+            $minimum_time = strtotime($minimum_date);
+            if ($last_import_time > $minimum_time) {
+                $params['created_at_min'] = date('c', $last_import_time);
+            }
+        }
+
+        $api_url = add_query_arg($params, 'https://' . $store_name . '.myshopify.com/admin/api/2023-10/orders.json');
+        $debug_logs[] = self::debug_log("API URL: " . $api_url, "info");
+
+        $response = wp_remote_get( $api_url, [
             'headers' => [
                 'X-Shopify-Access-Token' => $access_token,
                 'Content-Type' => 'application/json',
             ],
-            'timeout' => 30,
-        ]
-    );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
+            'timeout' => 60,
+            'sslverify' => false, // For debugging - remove in production
+        ]);
 
         if ( is_wp_error( $response ) ) {
+            $debug_logs[] = self::debug_log("Shopify API error: " . $response->get_error_message(), "error");
             return [
                 'imported' => 0,
                 'message' => $response->get_error_message(),
+                'debug' => $debug_logs
+            ];
+        }
+
+        $response_code = wp_remote_retrieve_response_code( $response );
+        $debug_logs[] = self::debug_log("Shopify API response code: " . $response_code, "info");
+
+        if ( $response_code !== 200 ) {
+            $body = wp_remote_retrieve_body( $response );
+            $debug_logs[] = self::debug_log("Shopify API error response: " . $body, "error");
+            return [
+                'imported' => 0,
+                'message' => sprintf( __( 'API returned status code %d', 'vss' ), $response_code ),
+                'debug' => $debug_logs
             ];
         }
 
@@ -1265,11 +1531,15 @@ class VSS_External_Orders {
         $orders = isset( $body['orders'] ) ? $body['orders'] : [];
 
         if ( ! is_array( $orders ) ) {
+            $debug_logs[] = self::debug_log("Invalid JSON response from Shopify API", "error");
             return [
                 'imported' => 0,
                 'message' => __( 'Invalid response from API', 'vss' ),
+                'debug' => $debug_logs
             ];
         }
+
+        $debug_logs[] = self::debug_log("Found " . count($orders) . " orders to process", "info");
 
         $imported = 0;
         $skipped = 0;
@@ -1281,11 +1551,19 @@ class VSS_External_Orders {
 
             if ( $order_date < $minimum_time ) {
                 $skipped++;
-                continue; // Skip orders before July 28, 2025
+                $debug_logs[] = self::debug_log("Skipped order " . $external_order['name'] . " (before cutoff date)", "warning");
+                continue;
             }
 
-            if ( self::create_order_from_shopify( $external_order ) ) {
-                $imported++;
+            try {
+                if ( self::create_order_from_shopify( $external_order ) ) {
+                    $imported++;
+                    $debug_logs[] = self::debug_log("Successfully imported order " . $external_order['name'], "success");
+                } else {
+                    $debug_logs[] = self::debug_log("Order " . $external_order['name'] . " already exists", "warning");
+                }
+            } catch ( Exception $e ) {
+                $debug_logs[] = self::debug_log("Error importing order " . $external_order['name'] . ": " . $e->getMessage(), "error");
             }
         }
 
@@ -1299,6 +1577,7 @@ class VSS_External_Orders {
         return [
             'imported' => $imported,
             'message' => $message,
+            'debug' => $debug_logs
         ];
     }
 
@@ -1345,7 +1624,7 @@ class VSS_External_Orders {
         ] );
 
         if ( ! $order ) {
-            return false;
+            throw new Exception( 'Failed to create order' );
         }
 
         // Set order number to match original (Shopify uses 'name' field for order number)
@@ -1353,28 +1632,28 @@ class VSS_External_Orders {
 
         // Set billing details
         $billing = isset( $external_order['billing_address'] ) ? $external_order['billing_address'] : $external_order['customer'];
-        $order->set_billing_first_name( $billing['first_name'] );
-        $order->set_billing_last_name( $billing['last_name'] );
-        $order->set_billing_email( $external_order['email'] );
-        $order->set_billing_phone( $billing['phone'] );
-        $order->set_billing_address_1( $billing['address1'] );
-        $order->set_billing_address_2( $billing['address2'] );
-        $order->set_billing_city( $billing['city'] );
-        $order->set_billing_state( $billing['province_code'] );
-        $order->set_billing_postcode( $billing['zip'] );
-        $order->set_billing_country( $billing['country_code'] );
+        $order->set_billing_first_name( $billing['first_name'] ?? '' );
+        $order->set_billing_last_name( $billing['last_name'] ?? '' );
+        $order->set_billing_email( $external_order['email'] ?? '' );
+        $order->set_billing_phone( $billing['phone'] ?? '' );
+        $order->set_billing_address_1( $billing['address1'] ?? '' );
+        $order->set_billing_address_2( $billing['address2'] ?? '' );
+        $order->set_billing_city( $billing['city'] ?? '' );
+        $order->set_billing_state( $billing['province_code'] ?? '' );
+        $order->set_billing_postcode( $billing['zip'] ?? '' );
+        $order->set_billing_country( $billing['country_code'] ?? '' );
 
         // Set shipping details
         if ( isset( $external_order['shipping_address'] ) ) {
             $shipping = $external_order['shipping_address'];
-            $order->set_shipping_first_name( $shipping['first_name'] );
-            $order->set_shipping_last_name( $shipping['last_name'] );
-            $order->set_shipping_address_1( $shipping['address1'] );
-            $order->set_shipping_address_2( $shipping['address2'] );
-            $order->set_shipping_city( $shipping['city'] );
-            $order->set_shipping_state( $shipping['province_code'] );
-            $order->set_shipping_postcode( $shipping['zip'] );
-            $order->set_shipping_country( $shipping['country_code'] );
+            $order->set_shipping_first_name( $shipping['first_name'] ?? '' );
+            $order->set_shipping_last_name( $shipping['last_name'] ?? '' );
+            $order->set_shipping_address_1( $shipping['address1'] ?? '' );
+            $order->set_shipping_address_2( $shipping['address2'] ?? '' );
+            $order->set_shipping_city( $shipping['city'] ?? '' );
+            $order->set_shipping_state( $shipping['province_code'] ?? '' );
+            $order->set_shipping_postcode( $shipping['zip'] ?? '' );
+            $order->set_shipping_country( $shipping['country_code'] ?? '' );
         }
 
         // Set customer note if exists
@@ -1426,9 +1705,9 @@ class VSS_External_Orders {
         }
 
         // Set totals
-        $order->set_discount_total( $external_order['total_discounts'] );
+        $order->set_discount_total( $external_order['total_discounts'] ?? 0 );
         $order->set_shipping_total( $external_order['total_shipping_price_set']['shop_money']['amount'] ?? 0 );
-        $order->set_cart_tax( $external_order['total_tax'] );
+        $order->set_cart_tax( $external_order['total_tax'] ?? 0 );
         $order->set_total( $external_order['total_price'] );
 
         // Set order date
@@ -1490,12 +1769,6 @@ class VSS_External_Orders {
         $response = wp_remote_get( $api_url, [
             'headers' => [ 'X-Shopify-Access-Token' => $access_token ],
         ] );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_shopify_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_bigcommerce_orders: ", "debug", $response );
-
-        Vendor_Order_Manager::get_instance()->log( "API Response for import_woocommerce_orders: ", "debug", $response );
 
         $fulfillments = json_decode( wp_remote_retrieve_body( $response ), true );
         $fulfillment_id = ! empty( $fulfillments['fulfillments'] ) ? $fulfillments['fulfillments'][0]['id'] : null;
